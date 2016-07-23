@@ -1,17 +1,17 @@
 (defparameter *list-parse-rule-table* (make-hash-table))
 
-(defun parse-list (expression rule &optional (pos 0))
+(defun parse-list (expression list &optional (pos 0))
   (cond
-    ;; Rule is nil
-    ((null rule) (null expression))
-    ;; Rule is a named rule (without args)
-    ((symbolp rule) (let ((fun (gethash rule *list-parse-rule-table*)))
+    ;; Expression is nil
+    ((null expression) (null list))
+    ;; Expression is a named rule (without args)
+    ((symbolp expression) (let ((fun (gethash expression *list-parse-rule-table*)))
                       (if fun
-                          (funcall fun expression pos)
+                          (funcall fun list pos)
                           (error "Unknown rule."))))
-    ((listp rule) (let ((fun (gethash (first rule) *list-parse-rule-table*)))
+    ((listp expression) (let ((fun (gethash (first expression) *list-parse-rule-table*)))
                     (if fun
-                        (apply fun expression pos (rest rule))
+                        (apply fun list pos (rest expression))
                         (error "Unknown rule."))))
     ))
 
@@ -25,7 +25,7 @@
     ;; Is a lambda variable
     ((and (symbolp rule) (have rule args)) `(if (eql (nth ,pos ,expr) ,rule) ,rule))
     ;; Is a call to another rule (without args)
-    ((symbolp rule) `(parse-list ,expr ',rule ,pos))
+    ((symbolp rule) `(parse-list ',rule ,expr ,pos))
     ))
 
 (defun expand-or (expr rule pos)
@@ -63,7 +63,7 @@
     ;; ... an AND expression
     ((eql 'and (first rule)) (expand-and expr (rest rule) pos))
     ;; ... a call to another rule (with args)
-    ((symbolp (first rule)) (parse-list (rest expr) rule pos))
+    ((symbolp (first rule)) (parse-list rule (rest expr) pos))
     ))
 
 (defmacro defrule (name lambda-list expr)
@@ -76,4 +76,5 @@
 (defrule hey-you () (and 'hey 'you))
 (defrule test () (or hey-you hello-world))
 
-(parse-list '(hey you) 'test)
+(parse-list 'test '(hey you))
+(parse-list 'test '(hello world))
