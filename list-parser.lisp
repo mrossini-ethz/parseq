@@ -18,14 +18,29 @@
 (defun quoted-symbol-p (x)
   (and (listp x) (l= x 2) (eql (first x) 'quote) (symbolp (second x))))
 
+(defmacro test-and-advance (test expr pos &optional (inc 1))
+  `(with-gensyms (result)
+     `(let ((,result ,,test))
+        (when ,result
+          (incf ,,pos ,,inc)
+          ',,expr))))
+
+(defmacro try-and-advance (test pos)
+  `(with-gensyms (result success newpos)
+     `(multiple-value-bind (,result ,success ,newpos) ,,test
+        (when ,success
+          (setf ,,pos ,newpos)
+          ,result))))
+
 (defun expand-atom (expr rule pos &rest args)
   (cond
     ;; Is a quoted symbol
-    ((quoted-symbol-p rule) `(if (eql (nth ,pos ,expr) ',(second rule)) ',(second rule)))
+    ((quoted-symbol-p rule) (test-and-advance `(eql (nth ,pos ,expr) ',(second rule)) (second rule) pos))
     ;; Is a lambda variable
-    ((and (symbolp rule) (have rule args)) `(if (eql (nth ,pos ,expr) ,rule) ,rule))
+    ;;((and (symbolp rule) (have rule args)) `(if (eql (nth ,pos ,expr) ,rule) ,rule))
+    ((and (symbolp rule) (have rule args)) (test-and-advance `(eql (nth ,pos ,expr) ,rule) rule pos))
     ;; Is a call to another rule (without args)
-    ((symbolp rule) `(parse-list ',rule ,expr ,pos))
+    ((symbolp rule) (try-and-advance `(parse-list ',rule ,expr ,pos) pos))
     ))
 
 (defun expand-or (expr rule pos)
@@ -42,10 +57,10 @@
          ;; Loop over the rules
          ,@(loop for r in rule for n upfrom 0 collect
                 ;; Bind a variable to the result of the rule expansion
-                `(let ((,result ,(expand-rule expr r `(+ ,pos ,n))))
+                `(let ((,result ,(expand-rule expr r pos)))
                    ;; If the result is nil, return nil
                    (unless ,result
-                     (return-from ,block nil))
+                     (return-from ,block))
                    ;; Otherwise append the result
                    (appendf ,list ,result)))))))
 
@@ -67,10 +82,13 @@
     ))
 
 (defmacro defrule (name lambda-list expr)
-  (with-gensyms (x pos)
+  (with-gensyms (x pos oldpos result)
     `(setf (gethash ',name *list-parse-rule-table*)
            #'(lambda (,x ,pos ,@lambda-list)
-               ,(apply #'expand-rule x expr pos lambda-list)))))
+               (let ((,oldpos ,pos) (,result ,(apply #'expand-rule x expr pos lambda-list)))
+                 (if ,result
+                   (values ,result t ,pos)
+                   (values nil nil ,oldpos)))))))
 
 (defrule hello-world () (and 'hello 'world))
 (defrule hey-you () (and 'hey 'you))
