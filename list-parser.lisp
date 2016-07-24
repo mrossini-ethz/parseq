@@ -85,6 +85,10 @@
              (incf ,pos)
              ,result)))))
 
+(defun expand-* (expr rule pos args)
+  (with-gensyms (ret)
+       `(loop for ,ret = ,(expand-rule expr rule pos args) while ,ret collect ,ret)))
+
 (defun make-parse-call (expr rule pos args)
   ;; Makes a call to `parse-list' with or without quoting the rule arguments depending on whether they are arguments to the current rule
   `(parse-list `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
@@ -98,6 +102,8 @@
     (and (expand-and expr (rest rule) pos args))
     ;; a NOT expression
     (not (expand-not expr (second rule) pos args))
+    ;; a * expression
+    (* (expand-* expr (second rule) pos args))
     ;; a call to another rule (with args)
     (t (try-and-advance (make-parse-call expr rule pos args) pos))))
 
@@ -131,7 +137,10 @@
 (defrule test-x (x) (or (hey-x x) hello-world))
 (defrule test-y () (or (hey-x 'y) hello-world))
 (defrule test-or-and () (or (and 'hello 'you) (and 'hello 'world)))
+(defrule test* () (* 'a))
 
+(parse-list 'test* '())
+(parse-list 'test* '(a a a a))
 (parse-list 'test '(hello you))
 (parse-list 'test '(hello world))
 (parse-list '(hey-x 'yo) '(hey yo))
