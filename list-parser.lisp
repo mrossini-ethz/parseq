@@ -129,23 +129,54 @@
             (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret)))
             t)))))
 
+(defun expand-? (expr rule pos args)
+  (with-gensyms (result success)
+    `(multiple-value-bind (,result ,success) ,(expand-rule expr rule pos args)
+       (values (if ,success ,result nil) t))))
+
+(defun expand-& (expr rule pos args)
+  (with-gensyms (oldpos result success)
+    `(let ((,oldpos ,pos))
+       (multiple-value-bind (,result ,success) ,(expand-rule expr rule pos args)
+         (if ,success
+             (progn
+               (setf ,pos ,oldpos)
+               (values ,result t))
+             (values nil nil))))))
+
+(defun expand-! (expr rule pos args)
+  (with-gensyms (oldpos result success)
+    `(let ((,oldpos ,pos))
+       (multiple-value-bind (,result ,success) ,(expand-rule expr rule pos args)
+         (if ,success
+             (progn
+               (setf ,pos ,oldpos)
+               (values ,result nil))
+             (values nil t))))))
+
 (defun expand-parse-call (expr rule pos args)
   ;; Makes a call to `parse-list' with or without quoting the rule arguments depending on whether they are arguments to the current rule
   `(parse-list `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
 
 (defun expand-list-expr (expr rule pos args)
-  ;; Rule is ...
+  ;; Rule is a ...
   (case (first rule)
-    ;; an OR expression
+    ;; ordered choice
     (or (expand-or expr (rest rule) pos args))
-    ;; an AND expression
+    ;; sequence
     (and (expand-and expr (rest rule) pos args))
-    ;; a NOT expression
+    ;; negation
     (not (expand-not expr (second rule) pos args))
-    ;; a * expression
+    ;; greedy repetition
     (* (expand-* expr (second rule) pos args))
-    ;; a + expression
+    ;; greedy positive repetition
     (+ (expand-+ expr (second rule) pos args))
+    ;; optional
+    (? (expand-? expr (second rule) pos args))
+    ;; followed-by predicate
+    (& (expand-& expr (second rule) pos args))
+    ;; not-followed-by predicate
+    (! (expand-! expr (second rule) pos args))
     ;; a call to another rule (with args)
     (t (try-and-advance (expand-parse-call expr rule pos args) pos))))
 
@@ -210,6 +241,9 @@
 (defrule not () (not 'a))
 (defrule * () (* 'a))
 (defrule + () (+ 'a))
+(defrule ? () (? 'a))
+(defrule & () (& 'a))
+(defrule ! () (! 'a))
 (defrule var (x) x)
 (defrule nest () sym)
 
@@ -262,6 +296,22 @@
     (test-parse-list '+ '(b) nil)
     (test-parse-list '+ '(a b) t)))
 
+(define-test ?-test ()
+  (check
+    (test-parse-list '? '() t)
+    (test-parse-list '? '(a) t)
+    (test-parse-list '? '(b) t)))
+
+(define-test &-test ()
+  (check
+    (test-parse-list '& '(a) t)
+    (test-parse-list '& '(b) nil)))
+
+(define-test !-test ()
+  (check
+    (test-parse-list '! '(a) nil)
+    (test-parse-list '! '(b) t)))
+
 (define-test var-test ()
   (check
     (test-parse-list '(var 'a) '(a) t)
@@ -280,6 +330,9 @@
     (not-test)
     (*-test)
     (+-test)
+    (?-test)
+    (&-test)
+    (!-test)
     (var-test)
     (nesting-test)
 ))
