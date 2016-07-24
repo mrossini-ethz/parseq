@@ -67,6 +67,16 @@
   ;; Makes a call to `parse-list' with or without quoting the rule arguments depending on whether they are arguments to the current rule
   `(parse-list `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
 
+(defun expand-list-expr (expr rule pos args)
+  ;; Rule is ...
+  (case (first rule)
+    ;; an OR expression
+    (or (expand-or expr (rest rule) pos args))
+    ;; an AND expression
+    (and (expand-and expr (rest rule) pos args))
+    ;; a call to another rule (with args)
+    (t (try-and-advance (make-parse-call expr rule pos args) pos))))
+
 (defun expand-rule (expr rule pos args)
   ;; Rule is
   (cond
@@ -76,13 +86,8 @@
     ((atom rule) (expand-atom expr rule pos args))
     ;; ... a quoted symbol
     ((quoted-symbol-p rule) (expand-atom expr rule pos args))
-    ;; ... an OR expression
-    ((eql 'or (first rule)) (expand-or expr (rest rule) pos args))
-    ;; ... an AND expression
-    ((eql 'and (first rule)) (expand-and expr (rest rule) pos args))
-    ;; ... a call to another rule (with args)
-    ((symbolp (first rule)) (try-and-advance (make-parse-call expr rule pos args) pos))
-    ))
+    ;; ... a list expression
+    (t (expand-list-expr expr rule pos args))))
 
 (defmacro defrule (name lambda-list expr)
   (with-gensyms (x pos oldpos result)
