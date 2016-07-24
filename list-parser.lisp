@@ -118,7 +118,7 @@
 (defun expand-* (expr rule pos args)
    (with-gensyms (ret)
      `(values 
-       (loop for ,ret = ,(expand-rule expr rule pos args) while ,ret collect ,ret)
+       (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret))
        t)))
 
 (defun expand-parse-call (expr rule pos args)
