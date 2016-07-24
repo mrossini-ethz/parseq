@@ -35,6 +35,15 @@
           (setf ,,pos ,newpos)
           ,result))))
 
+;; Expansion functions -----------------------------------------------
+
+;; These are helper functions for the defrule macro.
+;; Therefore, the functions contain macro code and need to be treated as such.
+;; All take the list that should be parsed as `expr', the parsing `rule',
+;; the current `pos'ition in the list as well as the `arg'uments to the defrule.
+;; The intent is to generate lisp code for parsing.
+;; They return two values: The portion of the `expr' that was parsed, and a success value
+
 (defun expand-atom (expr rule pos args)
   (cond
     ;; Is a quoted symbol
@@ -89,7 +98,7 @@
   (with-gensyms (ret)
        `(loop for ,ret = ,(expand-rule expr rule pos args) while ,ret collect ,ret)))
 
-(defun make-parse-call (expr rule pos args)
+(defun expand-parse-call (expr rule pos args)
   ;; Makes a call to `parse-list' with or without quoting the rule arguments depending on whether they are arguments to the current rule
   `(parse-list `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
 
@@ -105,7 +114,7 @@
     ;; a * expression
     (* (expand-* expr (second rule) pos args))
     ;; a call to another rule (with args)
-    (t (try-and-advance (make-parse-call expr rule pos args) pos))))
+    (t (try-and-advance (expand-parse-call expr rule pos args) pos))))
 
 (defun expand-rule (expr rule pos args)
   ;; Rule is
@@ -119,14 +128,25 @@
     ;; ... a list expression
     (t (expand-list-expr expr rule pos args))))
 
+;; defrule macro --------------------------------------------------------------
+
 (defmacro defrule (name lambda-list expr)
+  ;; Creates a lambda function that parses the given grammar rules.
+  ;; It then stores the lambda function in the global list *list-parse-rule-table*,
+  ;; therefore the rule functions use a namespace separate from everything
   (with-gensyms (x pos oldpos result)
+    ;; Save the lambda function in the namespace table
     `(setf (gethash ',name *list-parse-rule-table*)
+           ;; The lambda function that parses according to the given grammar rules
            #'(lambda (,x ,pos ,@lambda-list)
+               ;; Save the previous parsing position and get the parsing result
                (let ((,oldpos ,pos) (,result ,(expand-rule x expr pos lambda-list)))
+                 ;; If parsing was successful ...
                  (if ,result
-                   (values ,result t ,pos)
-                   (values nil nil ,oldpos)))))))
+                     ;; Return the parsing result, the success and the new position
+                     (values ,result t ,pos)
+                     ;; Return nil as parsing result, failure and the old position
+                     (values nil nil ,oldpos)))))))
 
 ;; Tryout area ----------------------------------------------------------------
 
