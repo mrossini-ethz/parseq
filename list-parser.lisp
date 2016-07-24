@@ -63,6 +63,10 @@
                    ;; Otherwise append the result
                    (appendf ,list ,result)))))))
 
+(defun make-parse-call (expr rule pos args)
+  ;; Makes a call to `parse-list' with or without quoting the rule arguments depending on whether they are arguments to the current rule
+  `(parse-list `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
+
 (defun expand-rule (expr rule pos args)
   ;; Rule is
   (cond
@@ -77,7 +81,7 @@
     ;; ... an AND expression
     ((eql 'and (first rule)) (expand-and expr (rest rule) pos args))
     ;; ... a call to another rule (with args)
-    ((symbolp (first rule)) (try-and-advance `(parse-list ',rule ,expr ,pos) pos))
+    ((symbolp (first rule)) (try-and-advance (make-parse-call expr rule pos args) pos))
     ))
 
 (defmacro defrule (name lambda-list expr)
@@ -93,10 +97,13 @@
 (defrule hey-you () (and 'hey 'you))
 (defrule hey-x (x) (and 'hey x))
 (defrule test () (or hey-you hello-world))
-(defrule carg () 'x)
-(defrule varg (x) x)
+(defrule test-x (x) (or (hey-x x) hello-world))
+(defrule test-y () (or (hey-x 'y) hello-world))
 
-(parse-list 'carg '(x))
-(parse-list '(varg 'q) '(q))
 (parse-list 'test '(hey you))
 (parse-list 'test '(hello world))
+(parse-list '(hey-x 'yo) '(hey yo))
+(parse-list '(test-x 'w) '(hey w))
+(parse-list '(test-x 'w) '(hello world))
+(parse-list 'test-y '(hey y))
+(parse-list 'test-y '(hello world))
