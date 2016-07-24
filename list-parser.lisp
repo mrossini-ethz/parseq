@@ -51,17 +51,18 @@
 
 (defun expand-and (expr rule pos args)
   ;; Create gensyms for the list of results, the individual result and the block to return from when short-circuiting
-  (with-gensyms (list result block)
+  (with-gensyms (list result block oldpos)
     ;; Block to return from when short-circuiting
     `(block ,block
        ;; Initialize the list of results
-       (let (,list)
+       (let (,list (,oldpos ,pos))
          ;; Loop over the rules
          ,@(loop for r in rule for n upfrom 0 collect
                 ;; Bind a variable to the result of the rule expansion
                 `(let ((,result ,(expand-rule expr r pos args)))
                    ;; If the result is nil, return nil
                    (unless ,result
+                     (setf ,pos ,oldpos)
                      (return-from ,block))
                    ;; Otherwise append the result
                    (appendf ,list ,result)))))))
@@ -129,14 +130,17 @@
 (defrule test () (or hey-you hello-world))
 (defrule test-x (x) (or (hey-x x) hello-world))
 (defrule test-y () (or (hey-x 'y) hello-world))
+(defrule test-or-and () (or (and 'hello 'you) (and 'hello 'world)))
 
-(parse-list 'test '(hey you))
+(parse-list 'test '(hello you))
 (parse-list 'test '(hello world))
 (parse-list '(hey-x 'yo) '(hey yo))
 (parse-list '(test-x 'w) '(hey w))
 (parse-list '(test-x 'w) '(hello world))
 (parse-list 'test-y '(hey y))
 (parse-list 'test-y '(hello world))
+(parse-list 'test-or-and '(hello you))
+(parse-list 'test-or-and '(hello world))
 
 ;; Test area ------------------------------------------------------------------
 
