@@ -260,10 +260,9 @@
 (defrule nest-+-and () (+ (and 'a 'b)))
 (defrule nest-and-+ () (and (+ 'a) (+ 'b)))
 
-(defun test-parse-list (expression list success)
-  (multiple-value-bind (result success-p pos) (parse-list expression list)
-    (declare (ignore result pos))
-    (xnor success success-p)))
+(defun test-parse-list (expression list &optional success (result nil result-p) junk-allowed)
+  (multiple-value-bind (rslt success-p) (parse-list expression list :junk-allowed junk-allowed)
+    (and (xnor success success-p) (or (not result-p) (equal rslt result)))))
 
 (define-test symbol-test ()
   (check
