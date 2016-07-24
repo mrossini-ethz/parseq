@@ -21,19 +21,26 @@
 (defun quoted-symbol-p (x)
   (and (listp x) (l= x 2) (eql (first x) 'quote) (symbolp (second x))))
 
+;; Expansion helper macros ---------------------------------------------------
+
 (defmacro test-and-advance (test expr pos &optional (inc 1))
   `(with-gensyms (result ret)
      `(let ((,result ,,test) (,ret ,,expr))
-        (when ,result
-          (incf ,,pos ,,inc)
-          ,ret))))
+        (if ,result
+            (progn
+              (incf ,,pos ,,inc)
+              (values ,ret t))
+            (values nil nil)))))
+            
 
 (defmacro try-and-advance (test pos)
   `(with-gensyms (result success newpos)
      `(multiple-value-bind (,result ,success ,newpos) ,,test
-        (when ,success
-          (setf ,,pos ,newpos)
-          ,result))))
+        (if ,success
+            (progn
+              (setf ,,pos ,newpos)
+              (values ,result t))
+            (values nil nil)))))
 
 ;; Expansion functions -----------------------------------------------
 
@@ -54,13 +61,22 @@
     ((symbolp rule) (try-and-advance `(parse-list ',rule ,expr ,pos) pos))
     ))
 
+(defmacro cond-or (&rest clauses)
+  ;; Helper macro for expand-or. Works like cond, but operates on the two values returned by each clause.
+  (if clauses
+      (with-gensyms (result success)
+        `(multiple-value-bind (,result ,success) ,(first clauses)
+           (if ,success
+               (values ,result t)
+               (cond-or ,@(rest clauses)))))
+      `(values nil nil)))
+
 (defun expand-or (expr rule pos args)
-  `(cond
-     ,@(loop for r in rule collect (list (expand-rule expr r pos args)))))
+  `(cond-or ,@(loop for r in rule collect (expand-rule expr r pos args))))
 
 (defun expand-and (expr rule pos args)
   ;; Create gensyms for the list of results, the individual result and the block to return from when short-circuiting
-  (with-gensyms (list result block oldpos)
+  (with-gensyms (list result block oldpos success)
     ;; Block to return from when short-circuiting
     `(block ,block
        ;; Initialize the list of results
@@ -68,35 +84,42 @@
          ;; Loop over the rules
          ,@(loop for r in rule for n upfrom 0 collect
                 ;; Bind a variable to the result of the rule expansion
-                `(let ((,result ,(expand-rule expr r pos args)))
-                   ;; If the result is nil, return nil
-                   (unless ,result
+                `(multiple-value-bind (,result ,success) ,(expand-rule expr r pos args)
+                   ;; If success ...
+                   (unless ,success
+                     ;; Rewind position
                      (setf ,pos ,oldpos)
-                     (return-from ,block))
+                     ;; Return failure
+                     (return-from ,block (values nil nil)))
                    ;; Otherwise append the result
-                   (appendf ,list ,result)))))))
+                   (appendf ,list ,result)))
+         ;; Return success
+         (values ,list t)))))
 
 (defun expand-not (expr rule pos args)
-  (with-gensyms (oldpos result)
+  (with-gensyms (oldpos result success)
     ;; Save the current position
     `(let ((,oldpos ,pos))
+       (multiple-value-bind (,result ,success) ,(expand-rule expr rule pos args)
        ;; If the rule ...
-       (if ,(expand-rule expr rule pos args)
-           ;; is successful
+       (if ,success
+           ;; is successful (which is bad)
            (progn
              ;; Roll back the position
              (setf ,pos ,oldpos)
              ;; Return nil
-             nil)
+             (values nil nil))
            ;; fails
            (let ((,result (nth ,pos ,expr)))
              ;; Advance the position by one
              (incf ,pos)
-             ,result)))))
+             (values ,result t)))))))
 
 (defun expand-* (expr rule pos args)
-  (with-gensyms (ret)
-       `(loop for ,ret = ,(expand-rule expr rule pos args) while ,ret collect ,ret)))
+   (with-gensyms (ret)
+     `(values 
+       (loop for ,ret = ,(expand-rule expr rule pos args) while ,ret collect ,ret)
+       t)))
 
 (defun expand-parse-call (expr rule pos args)
   ;; Makes a call to `parse-list' with or without quoting the rule arguments depending on whether they are arguments to the current rule
@@ -134,19 +157,20 @@
   ;; Creates a lambda function that parses the given grammar rules.
   ;; It then stores the lambda function in the global list *list-parse-rule-table*,
   ;; therefore the rule functions use a namespace separate from everything
-  (with-gensyms (x pos oldpos result)
+  (with-gensyms (x pos oldpos result success)
     ;; Save the lambda function in the namespace table
     `(setf (gethash ',name *list-parse-rule-table*)
            ;; The lambda function that parses according to the given grammar rules
            #'(lambda (,x ,pos ,@lambda-list)
                ;; Save the previous parsing position and get the parsing result
-               (let ((,oldpos ,pos) (,result ,(expand-rule x expr pos lambda-list)))
-                 ;; If parsing was successful ...
-                 (if ,result
-                     ;; Return the parsing result, the success and the new position
-                     (values ,result t ,pos)
-                     ;; Return nil as parsing result, failure and the old position
-                     (values nil nil ,oldpos)))))))
+               (let ((,oldpos ,pos))
+                 (multiple-value-bind (,result ,success) ,(expand-rule x expr pos lambda-list)
+                   ;; If parsing was successful ...
+                   (if ,success
+                       ;; Return the parsing result, the success and the new position
+                       (values ,result t ,pos)
+                       ;; Return nil as parsing result, failure and the old position
+                       (values nil nil ,oldpos))))))))
 
 ;; Tryout area ----------------------------------------------------------------
 
@@ -157,10 +181,7 @@
 (defrule test-x (x) (or (hey-x x) hello-world))
 (defrule test-y () (or (hey-x 'y) hello-world))
 (defrule test-or-and () (or (and 'hello 'you) (and 'hello 'world)))
-(defrule test* () (* 'a))
 
-(parse-list 'test* '())
-(parse-list 'test* '(a a a a))
 (parse-list 'test '(hello you))
 (parse-list 'test '(hello world))
 (parse-list '(hey-x 'yo) '(hey yo))
@@ -177,6 +198,7 @@
 (defrule and () (and 'a 'b 'c))
 (defrule or () (or 'a 'b 'c))
 (defrule not () (not 'a))
+(defrule * () (* 'a))
 (defrule var (x) x)
 (defrule nest () sym)
 
@@ -211,6 +233,16 @@
     (test-parse-list 'not '(c) t)
     (test-parse-list 'not '(d) t)))
 
+(define-test *-test ()
+  (check
+    (test-parse-list '* '() t)
+    (test-parse-list '* '(a) t)
+    (test-parse-list '* '(a a) t)
+    (test-parse-list '* '(a a a) t)
+    (test-parse-list '* '(b) t)
+    (test-parse-list '* '(a b) t)
+))
+
 (define-test var-test ()
   (check
     (test-parse-list '(var 'a) '(a) t)
@@ -227,6 +259,7 @@
     (and-test)
     (or-test)
     (not-test)
+    (*-test)
     (var-test)
     (nesting-test)
 ))
