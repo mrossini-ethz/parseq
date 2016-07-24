@@ -19,11 +19,11 @@
   (and (listp x) (l= x 2) (eql (first x) 'quote) (symbolp (second x))))
 
 (defmacro test-and-advance (test expr pos &optional (inc 1))
-  `(with-gensyms (result)
-     `(let ((,result ,,test))
+  `(with-gensyms (result ret)
+     `(let ((,result ,,test) (,ret ,,expr))
         (when ,result
           (incf ,,pos ,,inc)
-          ',,expr))))
+          ,ret))))
 
 (defmacro try-and-advance (test pos)
   `(with-gensyms (result success newpos)
@@ -35,10 +35,9 @@
 (defun expand-atom (expr rule pos args)
   (cond
     ;; Is a quoted symbol
-    ((quoted-symbol-p rule) (test-and-advance `(eql (nth ,pos ,expr) ',(second rule)) (second rule) pos))
+    ((quoted-symbol-p rule) (test-and-advance `(eql (nth ,pos ,expr) ,rule) `(nth ,pos ,expr) pos))
     ;; Is a lambda variable
-    ;;((and (symbolp rule) (have rule args)) `(if (eql (nth ,pos ,expr) ,rule) ,rule))
-    ((and (symbolp rule) (have rule args)) (test-and-advance `(eql (nth ,pos ,expr) ,rule) rule pos))
+    ((and (symbolp rule) (have rule args)) (test-and-advance `(eql (nth ,pos ,expr) (second ,rule)) `(nth ,pos ,expr) pos))
     ;; Is a call to another rule (without args)
     ((symbolp rule) (try-and-advance `(parse-list ',rule ,expr ,pos) pos))
     ))
