@@ -3,20 +3,28 @@
 
 (defparameter *list-parse-rule-table* (make-hash-table))
 
-(defun parse-list (expression list &optional (pos 0))
+(defun parse-list (expression list &key start end junk-allowed)
+  (declare (ignore start end)) ;; FIXME
+  (let ((pos 0))
+    (multiple-value-bind (result success newpos) (parse-list-internal expression list pos)
+      (if (and success (or junk-allowed (l= list newpos)))
+          (values result t)
+          (values nil nil)))))
+
+(defun parse-list-internal (expression list pos)
   (cond
     ;; Expression is nil
     ((null expression) (null list))
     ;; Expression is a named rule (without args)
     ((symbolp expression) (let ((fun (gethash expression *list-parse-rule-table*)))
-                      (if fun
-                          (funcall fun list pos)
-                          (error (format nil "Unknown rule `~a'." expression)))))
+                            (if fun
+                                (funcall fun list pos)
+                                (error (format nil "Unknown rule `~a'." expression)))))
+    ;; Expression is a named rule (with args)
     ((listp expression) (let ((fun (gethash (first expression) *list-parse-rule-table*)))
-                    (if fun
-                        (apply fun list pos (rest expression))
-                        (error "Unknown rule."))))
-    ))
+                          (if fun
+                              (apply fun list pos (rest expression))
+                              (error "Unknown rule."))))))
 
 (defun quoted-symbol-p (x)
   (and (listp x) (l= x 2) (eql (first x) 'quote) (symbolp (second x))))
@@ -58,7 +66,7 @@
     ;; Is a lambda variable
     ((and (symbolp rule) (have rule args)) (test-and-advance `(eql (nth ,pos ,expr) (second ,rule)) `(nth ,pos ,expr) pos))
     ;; Is a call to another rule (without args)
-    ((symbolp rule) (try-and-advance `(parse-list ',rule ,expr ,pos) pos))
+    ((symbolp rule) (try-and-advance `(parse-list-internal ',rule ,expr ,pos) pos))
     ))
 
 (defmacro cond-or (&rest clauses)
@@ -155,8 +163,8 @@
              (values nil t))))))
 
 (defun expand-parse-call (expr rule pos args)
-  ;; Makes a call to `parse-list' with or without quoting the rule arguments depending on whether they are arguments to the current rule
-  `(parse-list `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
+  ;; Makes a call to `parse-list-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
+  `(parse-list-internal `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
 
 (defun expand-list-expr (expr rule pos args)
   ;; Rule is a ...
@@ -289,8 +297,8 @@
     (test-parse-list '* '(a) t)
     (test-parse-list '* '(a a) t)
     (test-parse-list '* '(a a a) t)
-    (test-parse-list '* '(b) t)
-    (test-parse-list '* '(a b) t)))
+    (test-parse-list '* '(b) nil)
+    (test-parse-list '* '(a b) nil)))
 
 (define-test +-test ()
   (check
@@ -299,23 +307,23 @@
     (test-parse-list '+ '(a a) t)
     (test-parse-list '+ '(a a a) t)
     (test-parse-list '+ '(b) nil)
-    (test-parse-list '+ '(a b) t)))
+    (test-parse-list '+ '(a b) nil)))
 
 (define-test ?-test ()
   (check
     (test-parse-list '? '() t)
     (test-parse-list '? '(a) t)
-    (test-parse-list '? '(b) t)))
+    (test-parse-list '? '(b) nil)))
 
 (define-test &-test ()
   (check
-    (test-parse-list '& '(a) t)
+    (test-parse-list '& '(a) nil)
     (test-parse-list '& '(b) nil)))
 
 (define-test !-test ()
   (check
     (test-parse-list '! '(a) nil)
-    (test-parse-list '! '(b) t)))
+    (test-parse-list '! '(b) nil)))
 
 (define-test var-test ()
   (check
@@ -347,9 +355,9 @@
     (test-parse-list 'nest-and-or '(b c e) t)
 
     (test-parse-list 'nest-*-and '() t)
-    (test-parse-list 'nest-*-and '(a) t)
+    (test-parse-list 'nest-*-and '(a) nil)
     (test-parse-list 'nest-*-and '(a b) t)
-    (test-parse-list 'nest-*-and '(a b a) t)
+    (test-parse-list 'nest-*-and '(a b a) nil)
     (test-parse-list 'nest-*-and '(a b a b) t)
 
     (test-parse-list 'nest-and-* '() t)
@@ -364,7 +372,7 @@
     (test-parse-list 'nest-+-and '() nil)
     (test-parse-list 'nest-+-and '(a) nil)
     (test-parse-list 'nest-+-and '(a b) t)
-    (test-parse-list 'nest-+-and '(a b a) t)
+    (test-parse-list 'nest-+-and '(a b a) nil)
     (test-parse-list 'nest-+-and '(a b a b) t)
 
     (test-parse-list 'nest-and-+ '() nil)
