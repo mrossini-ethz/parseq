@@ -121,6 +121,14 @@
        (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret))
        t)))
 
+(defun expand-+ (expr rule pos args)
+  (with-gensyms (result success ret)
+    `(multiple-value-bind (,result ,success) ,(expand-rule expr rule pos args)
+       (if ,success
+           (values
+            (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret)))
+            t)))))
+
 (defun expand-parse-call (expr rule pos args)
   ;; Makes a call to `parse-list' with or without quoting the rule arguments depending on whether they are arguments to the current rule
   `(parse-list `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
@@ -136,6 +144,8 @@
     (not (expand-not expr (second rule) pos args))
     ;; a * expression
     (* (expand-* expr (second rule) pos args))
+    ;; a + expression
+    (+ (expand-+ expr (second rule) pos args))
     ;; a call to another rule (with args)
     (t (try-and-advance (expand-parse-call expr rule pos args) pos))))
 
@@ -199,6 +209,7 @@
 (defrule or () (or 'a 'b 'c))
 (defrule not () (not 'a))
 (defrule * () (* 'a))
+(defrule + () (+ 'a))
 (defrule var (x) x)
 (defrule nest () sym)
 
@@ -240,8 +251,16 @@
     (test-parse-list '* '(a a) t)
     (test-parse-list '* '(a a a) t)
     (test-parse-list '* '(b) t)
-    (test-parse-list '* '(a b) t)
-))
+    (test-parse-list '* '(a b) t)))
+
+(define-test +-test ()
+  (check
+    (test-parse-list '+ '() nil)
+    (test-parse-list '+ '(a) t)
+    (test-parse-list '+ '(a a) t)
+    (test-parse-list '+ '(a a a) t)
+    (test-parse-list '+ '(b) nil)
+    (test-parse-list '+ '(a b) t)))
 
 (define-test var-test ()
   (check
@@ -260,6 +279,7 @@
     (or-test)
     (not-test)
     (*-test)
+    (+-test)
     (var-test)
     (nesting-test)
 ))
