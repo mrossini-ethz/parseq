@@ -50,6 +50,12 @@
               (values ,result t))
             (values nil nil)))))
 
+;; Expansion macros --------------------------------------------------
+
+(defmacro with-expansion (((result-var success-var) expr rule pos args) &body body)
+  `(multiple-value-bind (,result-var ,success-var) ,(expand-rule expr rule pos args)
+     ,@body))
+
 ;; Expansion functions -----------------------------------------------
 
 ;; These are helper functions for the defrule macro.
@@ -92,7 +98,7 @@
          ;; Loop over the rules
          ,@(loop for r in rule for n upfrom 0 collect
                 ;; Bind a variable to the result of the rule expansion
-                `(multiple-value-bind (,result ,success) ,(expand-rule expr r pos args)
+                `(with-expansion ((,result ,success) ,expr ,r ,pos ,args)
                    ;; If success ...
                    (unless ,success
                      ;; Rewind position
@@ -108,7 +114,7 @@
   (with-gensyms (oldpos result success)
     ;; Save the current position
     `(let ((,oldpos ,pos))
-       (multiple-value-bind (,result ,success) ,(expand-rule expr rule pos args)
+       (with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
        ;; If the rule ...
        (if ,success
            ;; is successful (which is bad)
@@ -131,7 +137,7 @@
 
 (defun expand-+ (expr rule pos args)
   (with-gensyms (result success ret)
-    `(multiple-value-bind (,result ,success) ,(expand-rule expr rule pos args)
+    `(with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
        (if ,success
            (values
             (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret)))
@@ -139,13 +145,13 @@
 
 (defun expand-? (expr rule pos args)
   (with-gensyms (result success)
-    `(multiple-value-bind (,result ,success) ,(expand-rule expr rule pos args)
+    `(with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
        (values (if ,success ,result nil) t))))
 
 (defun expand-& (expr rule pos args)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos ,pos))
-       (multiple-value-bind (,result ,success) ,(expand-rule expr rule pos args)
+       (with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
          (if ,success
              (progn
                (setf ,pos ,oldpos)
@@ -155,7 +161,7 @@
 (defun expand-! (expr rule pos args)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos ,pos))
-       (multiple-value-bind (,result ,success) ,(expand-rule expr rule pos args)
+       (with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
          (if ,success
              (progn
                (setf ,pos ,oldpos)
@@ -214,7 +220,7 @@
            #'(lambda (,x ,pos ,@lambda-list)
                ;; Save the previous parsing position and get the parsing result
                (let ((,oldpos ,pos))
-                 (multiple-value-bind (,result ,success) ,(expand-rule x expr pos lambda-list)
+                 (with-expansion ((,result ,success) ,x ,expr ,pos ,lambda-list)
                    ;; If parsing was successful ...
                    (if ,success
                        ;; Return the parsing result, the success and the new position
