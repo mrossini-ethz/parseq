@@ -78,8 +78,9 @@
     ;; Is a lambda variable
     ((and (symbolp rule) (have rule args)) (test-and-advance `(eql (nth ,pos ,expr) (second ,rule)) `(nth ,pos ,expr) pos))
     ;; Is the symbol 'symbol'
-    ;((and (symbolp rule) (eql rule 'symbol)) (expand-symbol expr rule pos args))
     ((and (symbolp rule) (eql rule 'symbol)) (test-and-advance `(symbolp (nth ,pos ,expr)) `(nth, pos, expr) pos))
+    ;; Is the symbol 'any'
+    ((and (symbolp rule) (eql rule 'any)) (test-and-advance t `(nth, pos, expr) pos))
     ;; Is a call to another rule (without args)
     ((symbolp rule) (try-and-advance `(parse-list-internal ',rule ,expr ,pos) pos))
     ))
@@ -256,6 +257,7 @@
 ;; Test area ------------------------------------------------------------------
 
 (defrule sym () symbol)
+(defrule any () any)
 (defrule and () (and 'a 'b 'c))
 (defrule or () (or 'a 'b 'c))
 (defrule not () (not 'a))
@@ -278,9 +280,15 @@
 
 (define-test symbol-test ()
   (check
-    (test-parse-list 'sym '(a) t)
-    (test-parse-list 'sym '((a)) nil)
-    (test-parse-list 'sym '(1) nil)))
+    (test-parse-list 'sym '(a) t 'a)
+    (test-parse-list 'sym '((a)) nil nil)
+    (test-parse-list 'sym '(1) nil nil)))
+
+(define-test any-test ()
+  (check
+    (test-parse-list 'any '(a) t 'a)
+    (test-parse-list 'any '((a)) t '(a))
+    (test-parse-list 'any '(1) t 1)))
 
 (define-test and-test ()
   (check
@@ -418,6 +426,7 @@
 (define-test parse-list-test ()
   (check
     (symbol-test)
+    (any-test)
     (and-test)
     (or-test)
     (not-test)
