@@ -56,6 +56,13 @@
   `(multiple-value-bind (,result-var ,success-var) ,(expand-rule expr rule pos args)
      ,@body))
 
+(defmacro with-expansion-success (((result-var success-var) expr rule pos args) then else)
+  `(with-expansion ((,result-var ,success-var) ,expr ,rule ,pos ,args)
+     (if ,success-var ,then ,else)))
+
+(defmacro with-expansion-failure (((result-var success-var) expr rule pos args) then else)
+  `(with-expansion-success ((,result-var ,success-var) ,expr ,rule ,pos ,args) ,else ,then))
+
 ;; Expansion functions -----------------------------------------------
 
 ;; These are helper functions for the defrule macro.
@@ -98,15 +105,15 @@
          ;; Loop over the rules
          ,@(loop for r in rule for n upfrom 0 collect
                 ;; Bind a variable to the result of the rule expansion
-                `(with-expansion ((,result ,success) ,expr ,r ,pos ,args)
-                   ;; If success ...
-                   (unless ,success
+                `(with-expansion-success ((,result ,success) ,expr ,r ,pos ,args)
+                   ;; Success
+                   (appendf ,list ,result)
+                   ;; Failure
+                   (progn
                      ;; Rewind position
                      (setf ,pos ,oldpos)
                      ;; Return failure
-                     (return-from ,block (values nil nil)))
-                   ;; Otherwise append the result
-                   (appendf ,list ,result)))
+                     (return-from ,block (values nil nil)))))
          ;; Return success
          (values ,list t)))))
 
@@ -114,20 +121,18 @@
   (with-gensyms (oldpos result success)
     ;; Save the current position
     `(let ((,oldpos ,pos))
-       (with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
-       ;; If the rule ...
-       (if ,success
-           ;; is successful (which is bad)
+       (with-expansion-failure ((,result ,success) ,expr ,rule ,pos ,args)
+           ;; Expression failed, which is good
+           (let ((,result (nth ,pos ,expr)))
+             ;; Advance the position by one
+             (incf ,pos)
+             (values ,result t))
+           ;; Expression succeeded, which is bad
            (progn
              ;; Roll back the position
              (setf ,pos ,oldpos)
              ;; Return nil
-             (values nil nil))
-           ;; fails
-           (let ((,result (nth ,pos ,expr)))
-             ;; Advance the position by one
-             (incf ,pos)
-             (values ,result t)))))))
+             (values nil nil))))))
 
 (defun expand-* (expr rule pos args)
    (with-gensyms (ret)
@@ -137,11 +142,11 @@
 
 (defun expand-+ (expr rule pos args)
   (with-gensyms (result success ret)
-    `(with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
-       (if ,success
-           (values
-            (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret)))
-            t)))))
+    `(with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
+       (values
+        (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret)))
+        t)
+       (values nil nil))))
 
 (defun expand-? (expr rule pos args)
   (with-gensyms (result success)
@@ -151,23 +156,23 @@
 (defun expand-& (expr rule pos args)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos ,pos))
-       (with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
-         (if ,success
-             (progn
-               (setf ,pos ,oldpos)
-               (values ,result t))
-             (values nil nil))))))
+       (with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
+         (progn
+           (setf ,pos ,oldpos)
+           (values ,result t))
+         (values nil nil)))))
 
 (defun expand-! (expr rule pos args)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos ,pos))
-       (with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
-         (if ,success
-             (progn
-               (setf ,pos ,oldpos)
-               (values ,result nil))
-             (let ((,result (nth ,pos ,expr)))
-               (values ,result t)))))))
+       (with-expansion-failure ((,result ,success) ,expr ,rule ,pos ,args)
+         ;; Failure, which is good
+         (let ((,result (nth ,pos ,expr)))
+           (values ,result t))
+         ;; Success, which is bad
+         (progn
+           (setf ,pos ,oldpos)
+           (values ,result nil))))))
 
 (defun expand-parse-call (expr rule pos args)
   ;; Makes a call to `parse-list-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
@@ -220,13 +225,11 @@
            #'(lambda (,x ,pos ,@lambda-list)
                ;; Save the previous parsing position and get the parsing result
                (let ((,oldpos ,pos))
-                 (with-expansion ((,result ,success) ,x ,expr ,pos ,lambda-list)
-                   ;; If parsing was successful ...
-                   (if ,success
-                       ;; Return the parsing result, the success and the new position
-                       (values ,result t ,pos)
-                       ;; Return nil as parsing result, failure and the old position
-                       (values nil nil ,oldpos))))))))
+                 (with-expansion-success ((,result ,success) ,x ,expr ,pos ,lambda-list)
+                   ;; Return the parsing result, the success and the new position
+                   (values ,result t ,pos)
+                   ;; Return nil as parsing result, failure and the old position
+                   (values nil nil ,oldpos)))))))
 
 ;; Tryout area ----------------------------------------------------------------
 
