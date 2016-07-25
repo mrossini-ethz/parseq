@@ -39,7 +39,6 @@
               (incf ,,pos ,,inc)
               (values ,ret t))
             (values nil nil)))))
-            
 
 (defmacro try-and-advance (test pos)
   `(with-gensyms (result success newpos)
@@ -78,6 +77,9 @@
     ((quoted-symbol-p rule) (test-and-advance `(eql (nth ,pos ,expr) ,rule) `(nth ,pos ,expr) pos))
     ;; Is a lambda variable
     ((and (symbolp rule) (have rule args)) (test-and-advance `(eql (nth ,pos ,expr) (second ,rule)) `(nth ,pos ,expr) pos))
+    ;; Is the symbol 'symbol'
+    ;((and (symbolp rule) (eql rule 'symbol)) (expand-symbol expr rule pos args))
+    ((and (symbolp rule) (eql rule 'symbol)) (test-and-advance `(symbolp (nth ,pos ,expr)) `(nth, pos, expr) pos))
     ;; Is a call to another rule (without args)
     ((symbolp rule) (try-and-advance `(parse-list-internal ',rule ,expr ,pos) pos))
     ))
@@ -253,7 +255,7 @@
 
 ;; Test area ------------------------------------------------------------------
 
-(defrule sym () 'a)
+(defrule sym () symbol)
 (defrule and () (and 'a 'b 'c))
 (defrule or () (or 'a 'b 'c))
 (defrule not () (not 'a))
@@ -277,7 +279,8 @@
 (define-test symbol-test ()
   (check
     (test-parse-list 'sym '(a) t)
-    (test-parse-list 'sym '(b) nil)))
+    (test-parse-list 'sym '((a)) nil)
+    (test-parse-list 'sym '(1) nil)))
 
 (define-test and-test ()
   (check
