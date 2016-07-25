@@ -24,7 +24,7 @@
     ((listp expression) (let ((fun (gethash (first expression) *list-parse-rule-table*)))
                           (if fun
                               (apply fun list pos (rest expression))
-                              (error "Unknown rule."))))))
+                              (error (format nil "Unknown rule `(~a ...)'." expression)))))))
 
 (defun quoted-symbol-p (x)
   (and (listp x) (l= x 2) (eql (first x) 'quote) (symbolp (second x))))
@@ -274,6 +274,19 @@
 (defrule nest-+-and () (+ (and 'a 'b)))
 (defrule nest-and-+ () (and (+ 'a) (+ 'b)))
 
+(defrule loop-name () (and 'named symbol))
+(defrule loop-iteration-with () (and 'with symbol '= any (* (and 'and symbol '= any))))
+(defrule loop-iteration-up () (and (? (and (or 'from 'upfrom) any)) (? (and (or 'upto 'to 'below) any))))
+(defrule loop-iteration-down1 () (and 'from any (or 'downto 'above) any))
+(defrule loop-iteration-down2 () (and 'downfrom any (? (and (or 'downto 'to 'above) any))))
+(defrule loop-iteration-numeric () (and (or loop-iteration-down1 loop-iteration-down2 loop-iteration-up) (? (and 'by any))))
+(defrule loop-iteration-list () (and (or 'in 'on) any (? (and 'by any))))
+(defrule loop-iteration-flex () (and '= any (? (and 'then any))))
+(defrule loop-iteration-vector () (and 'across any))
+(defrule loop-iteration-for () (and (or 'for 'as) symbol (or loop-iteration-list loop-iteration-flex loop-iteration-vector loop-iteration-numeric)))
+(defrule loop-iteration () (or loop-iteration-with loop-iteration-for))
+(defrule loop () (and (? loop-name) (* loop-iteration)))
+
 (defun test-parse-list (expression list &optional success (result nil result-p) junk-allowed)
   (multiple-value-bind (rslt success-p) (parse-list expression list :junk-allowed junk-allowed)
     (and (xnor success success-p) (or (not result-p) (equal rslt result)))))
@@ -423,6 +436,16 @@
     (test-parse-list 'nest-and-+ '(a b b) t '((a) (b b)))
 ))
 
+(define-test loop-test ()
+  (check
+    (test-parse-list 'loop '(named q for a from 0 below 10 by 10) t)
+    (test-parse-list 'loop '(named q for a from 0 above -10 by 10) t)
+    (test-parse-list 'loop '(named q for a downfrom 0 above 10 by 10) t)
+    (test-parse-list 'loop '(named q for a in lst by #'cdr) t)
+    (test-parse-list 'loop '(named q for a = 0 then (1+ a)) t)
+    (test-parse-list 'loop '(named q for a across vec) t)
+))
+
 (define-test parse-list-test ()
   (check
     (symbol-test)
@@ -437,6 +460,7 @@
     (!-test)
     (var-test)
     (nesting-test)
+    (loop-test)
 ))
 
 (parse-list-test)
