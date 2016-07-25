@@ -79,8 +79,8 @@
     ((and (symbolp rule) (have rule args)) (test-and-advance `(eql (nth ,pos ,expr) (second ,rule)) `(nth ,pos ,expr) pos))
     ;; Is the symbol 'symbol'
     ((and (symbolp rule) (eql rule 'symbol)) (test-and-advance `(symbolp (nth ,pos ,expr)) `(nth, pos, expr) pos))
-    ;; Is the symbol 'any'
-    ((and (symbolp rule) (eql rule 'any)) (test-and-advance t `(nth, pos, expr) pos))
+    ;; Is the symbol 'form'
+    ((and (symbolp rule) (eql rule 'form)) (test-and-advance t `(nth, pos, expr) pos))
     ;; Is a call to another rule (without args)
     ((symbolp rule) (try-and-advance `(parse-list-internal ',rule ,expr ,pos) pos))
     ))
@@ -257,7 +257,7 @@
 ;; Test area ------------------------------------------------------------------
 
 (defrule sym () symbol)
-(defrule any () any)
+(defrule form () form)
 (defrule and () (and 'a 'b 'c))
 (defrule or () (or 'a 'b 'c))
 (defrule not () (not 'a))
@@ -275,14 +275,14 @@
 (defrule nest-and-+ () (and (+ 'a) (+ 'b)))
 
 (defrule loop-name () (and 'named symbol))
-(defrule loop-iteration-with () (and 'with symbol '= any (* (and 'and symbol '= any))))
-(defrule loop-iteration-up () (and (? (and (or 'from 'upfrom) any)) (? (and (or 'upto 'to 'below) any))))
-(defrule loop-iteration-down1 () (and 'from any (or 'downto 'above) any))
-(defrule loop-iteration-down2 () (and 'downfrom any (? (and (or 'downto 'to 'above) any))))
-(defrule loop-iteration-numeric () (and (or loop-iteration-down1 loop-iteration-down2 loop-iteration-up) (? (and 'by any))))
-(defrule loop-iteration-list () (and (or 'in 'on) any (? (and 'by any))))
-(defrule loop-iteration-flex () (and '= any (? (and 'then any))))
-(defrule loop-iteration-vector () (and 'across any))
+(defrule loop-iteration-with () (and 'with symbol '= form (* (and 'and symbol '= form))))
+(defrule loop-iteration-up () (and (? (and (or 'from 'upfrom) form)) (? (and (or 'upto 'to 'below) form))))
+(defrule loop-iteration-down1 () (and 'from form (or 'downto 'above) form))
+(defrule loop-iteration-down2 () (and 'downfrom form (? (and (or 'downto 'to 'above) form))))
+(defrule loop-iteration-numeric () (and (or loop-iteration-down1 loop-iteration-down2 loop-iteration-up) (? (and 'by form))))
+(defrule loop-iteration-list () (and (or 'in 'on) form (? (and 'by form))))
+(defrule loop-iteration-flex () (and '= form (? (and 'then form))))
+(defrule loop-iteration-vector () (and 'across form))
 (defrule loop-iteration-for () (and (or 'for 'as) symbol (or loop-iteration-list loop-iteration-flex loop-iteration-vector loop-iteration-numeric)))
 (defrule loop-iteration () (or loop-iteration-with loop-iteration-for))
 (defrule loop () (and (? loop-name) (* loop-iteration)))
@@ -297,11 +297,11 @@
     (test-parse-list 'sym '((a)) nil nil)
     (test-parse-list 'sym '(1) nil nil)))
 
-(define-test any-test ()
+(define-test form-test ()
   (check
-    (test-parse-list 'any '(a) t 'a)
-    (test-parse-list 'any '((a)) t '(a))
-    (test-parse-list 'any '(1) t 1)))
+    (test-parse-list 'form '(a) t 'a)
+    (test-parse-list 'form '((a)) t '(a))
+    (test-parse-list 'form '(1) t 1)))
 
 (define-test and-test ()
   (check
@@ -449,7 +449,7 @@
 (define-test parse-list-test ()
   (check
     (symbol-test)
-    (any-test)
+    (form-test)
     (and-test)
     (or-test)
     (not-test)
