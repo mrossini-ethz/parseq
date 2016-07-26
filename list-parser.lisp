@@ -29,6 +29,25 @@
 (defun quoted-symbol-p (x)
   (and (listp x) (l= x 2) (eql (first x) 'quote) (symbolp (second x))))
 
+;; Tree position functions ---------------------------------------------------
+
+(defun treepos-valid (pos tree)
+  (when (listp tree)
+      (if (l> pos 1)
+          (when (l> tree (first pos))
+              (treepos-valid (rest pos) (nth (first pos) tree)))
+          (l> tree (first pos)))))
+
+(defun treeitem (pos tree)
+  (if (l> pos 1)
+      (treeitem (rest pos) (nth (first pos) tree))
+      (nth (first pos) tree)))
+
+(defun treepos-step (pos &optional (delta 1))
+  (let ((newpos (copy-tree pos)))
+    (incf (car (last newpos)) delta)
+    newpos))
+
 ;; Expansion helper macros ---------------------------------------------------
 
 (defmacro test-and-advance (test expr pos &optional (inc 1))
@@ -145,7 +164,7 @@
 
 (defun expand-* (expr rule pos args)
    (with-gensyms (ret)
-     `(values 
+     `(values
        (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret))
        t)))
 
