@@ -5,9 +5,9 @@
 
 (defun parse-list (expression list &key start end junk-allowed)
   (declare (ignore start end)) ;; FIXME
-  (let ((pos 0))
+  (let ((pos '(0)))
     (multiple-value-bind (result success newpos) (parse-list-internal expression list pos)
-      (if (and success (or junk-allowed (l= list newpos)))
+      (if (and success (or junk-allowed (l= list (first newpos))))
           (values result t)
           (values nil nil)))))
 
@@ -43,20 +43,28 @@
       (treeitem (rest pos) (nth (first pos) tree))
       (nth (first pos) tree)))
 
+(defun treepos-length (pos tree)
+  (if (l> pos 1)
+      (treepos-length (rest pos) (nth (first pos) tree))
+      (and (listp (nth (first pos) tree)) (list-length (nth (first pos) tree)))))
+
 (defun treepos-step (pos &optional (delta 1))
   (let ((newpos (copy-tree pos)))
     (incf (car (last newpos)) delta)
     newpos))
 
+(defun treepos-copy (pos)
+  (copy-tree pos))
+
 ;; Expansion helper macros ---------------------------------------------------
 
 (defmacro test-and-advance (test expr pos &optional (inc 1))
   `(with-gensyms (result ret)
-     `(if (l> ,expr ,pos)
+     `(if (treepos-valid ,pos ,expr)
           (let ((,result ,,test) (,ret ,,expr))
             (if ,result
                 (progn
-                  (incf ,,pos ,,inc)
+                  (setf ,,pos (treepos-step ,,pos ,,inc))
                   (values ,ret t))
                 (values nil nil)))
           (values nil nil))))
@@ -66,7 +74,7 @@
      `(multiple-value-bind (,result ,success ,newpos) ,,test
         (if ,success
             (progn
-              (setf ,,pos ,newpos)
+              (setf ,,pos (treepos-copy ,newpos))
               (values ,result t))
             (values nil nil)))))
 
@@ -95,13 +103,13 @@
 (defun expand-atom (expr rule pos args)
   (cond
     ;; Is a quoted symbol
-    ((quoted-symbol-p rule) (test-and-advance `(eql (nth ,pos ,expr) ,rule) `(nth ,pos ,expr) pos))
+    ((quoted-symbol-p rule) (test-and-advance `(eql (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr) pos))
     ;; Is a lambda variable
-    ((and (symbolp rule) (have rule args)) (test-and-advance `(eql (nth ,pos ,expr) (second ,rule)) `(nth ,pos ,expr) pos))
+    ((and (symbolp rule) (have rule args)) (test-and-advance `(eql (treeitem ,pos ,expr) (second ,rule)) `(treeitem ,pos ,expr) pos))
     ;; Is the symbol 'symbol'
-    ((and (symbolp rule) (eql rule 'symbol)) (test-and-advance `(symbolp (nth ,pos ,expr)) `(nth, pos, expr) pos))
+    ((and (symbolp rule) (eql rule 'symbol)) (test-and-advance `(symbolp (treeitem ,pos ,expr)) `(treeitem, pos, expr) pos))
     ;; Is the symbol 'form'
-    ((and (symbolp rule) (eql rule 'form)) (test-and-advance t `(nth, pos, expr) pos))
+    ((and (symbolp rule) (eql rule 'form)) (test-and-advance t `(treeitem ,pos, expr) pos))
     ;; Is a call to another rule (without args)
     ((symbolp rule) (try-and-advance `(parse-list-internal ',rule ,expr ,pos) pos))
     ))
@@ -125,7 +133,7 @@
     ;; Block to return from when short-circuiting
     `(block ,block
        ;; Initialize the list of results
-       (let (,list (,oldpos ,pos))
+       (let (,list (,oldpos (treepos-copy ,pos)))
          ;; Loop over the rules
          ,@(loop for r in rule for n upfrom 0 collect
                 ;; Bind a variable to the result of the rule expansion
@@ -144,13 +152,13 @@
 (defun expand-not (expr rule pos args)
   (with-gensyms (oldpos result success)
     ;; Save the current position
-    `(let ((,oldpos ,pos))
+    `(let ((,oldpos (treepos-copy ,pos)))
        (with-expansion-failure ((,result ,success) ,expr ,rule ,pos ,args)
          ;; Expression failed, which is good (but only if we have not reached the end of expr)
-         (if (l> ,expr ,pos)
-             (let ((,result (nth ,pos ,expr)))
+         (if (treepos-valid ,pos ,expr)
+             (let ((,result (treeitem ,pos ,expr)))
                ;; Advance the position by one
-               (incf ,pos)
+               (setf ,pos (treepos-step ,pos))
                (values ,result t))
              (values nil nil))
          ;; Expression succeeded, which is bad
@@ -183,7 +191,7 @@
 
 (defun expand-& (expr rule pos args)
   (with-gensyms (oldpos result success)
-    `(let ((,oldpos ,pos))
+    `(let ((,oldpos (treepos-copy ,pos)))
        (with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
          (progn
            (setf ,pos ,oldpos)
@@ -192,17 +200,35 @@
 
 (defun expand-! (expr rule pos args)
   (with-gensyms (oldpos result success)
-    `(let ((,oldpos ,pos))
+    `(let ((,oldpos (treepos-copy ,pos)))
        (with-expansion-failure ((,result ,success) ,expr ,rule ,pos ,args)
          ;; Failure, which is good (but only if we're not at the end of expr)
-         (if (l> ,expr ,pos)
-             (let ((,result (nth ,pos ,expr)))
+         (if (treepos-valid ,pos ,expr)
+             (let ((,result (treeitem ,pos ,expr)))
                (values ,result t))
              (values nil nil))
          ;; Success, which is bad
          (progn
            (setf ,pos ,oldpos)
            (values ,result nil))))))
+
+(defun expand-list (expr rule pos args)
+  (with-gensyms (result success length)
+    `(if (listp (treeitem ,pos ,expr))
+         (let ((,length (treepos-length ,pos ,expr)))
+           ;; Go into the list
+           (appendf ,pos 0)
+           (with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
+             ;; Success
+             (if (= (last-1 ,pos) ,length)
+                 (progn
+                   ;; Step out of the list and increment the position
+                   (setf ,pos (treepos-step (butlast ,pos)))
+                   (values (list ,result) t))
+                 (values nil nil))
+             ;; Failure
+             (values nil nil)))
+         (values nil nil))))
 
 (defun expand-parse-call (expr rule pos args)
   ;; Makes a call to `parse-list-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
@@ -227,6 +253,8 @@
     (& (expand-& expr (second rule) pos args))
     ;; not-followed-by predicate
     (! (expand-! expr (second rule) pos args))
+    ;; list
+    (list (expand-list expr (second rule) pos args))
     ;; a call to another rule (with args)
     (t (try-and-advance (expand-parse-call expr rule pos args) pos))))
 
@@ -254,32 +282,12 @@
            ;; The lambda function that parses according to the given grammar rules
            #'(lambda (,x ,pos ,@lambda-list)
                ;; Save the previous parsing position and get the parsing result
-               (let ((,oldpos ,pos))
+               (let ((,oldpos (treepos-copy ,pos)))
                  (with-expansion-success ((,result ,success) ,x ,expr ,pos ,lambda-list)
                    ;; Return the parsing result, the success and the new position
                    (values ,result t ,pos)
                    ;; Return nil as parsing result, failure and the old position
                    (values nil nil ,oldpos)))))))
-
-;; Tryout area ----------------------------------------------------------------
-
-(defrule hello-world () (and 'hello 'world))
-(defrule hey-you () (and 'hey 'you))
-(defrule hey-x (x) (and 'hey x))
-(defrule test () (or hey-you hello-world))
-(defrule test-x (x) (or (hey-x x) hello-world))
-(defrule test-y () (or (hey-x 'y) hello-world))
-(defrule test-or-and () (or (and 'hello 'you) (and 'hello 'world)))
-
-(parse-list 'test '(hello you))
-(parse-list 'test '(hello world))
-(parse-list '(hey-x 'yo) '(hey yo))
-(parse-list '(test-x 'w) '(hey w))
-(parse-list '(test-x 'w) '(hello world))
-(parse-list 'test-y '(hey y))
-(parse-list 'test-y '(hello world))
-(parse-list 'test-or-and '(hello you))
-(parse-list 'test-or-and '(hello world))
 
 ;; Test area ------------------------------------------------------------------
 
@@ -293,6 +301,7 @@
 (defrule ? () (? 'a))
 (defrule & () (& 'a))
 (defrule ! () (! 'a))
+(defrule list () (list 'a))
 (defrule var (x) x)
 (defrule nest-or-and () (or (and 'a 'b) (and 'a 'c) (and 'd 'e)))
 (defrule nest-and-or () (and (or 'a 'b) (or 'a 'c) (or 'd 'e)))
@@ -300,6 +309,7 @@
 (defrule nest-and-* () (and (* 'a) (* 'b)))
 (defrule nest-+-and () (+ (and 'a 'b)))
 (defrule nest-and-+ () (and (+ 'a) (+ 'b)))
+(defrule nest-list-list () (list (list 'a)))
 
 (defrule loop-name () (and 'named symbol))
 (defrule loop-iteration-with () (and 'with symbol '= form (* (and 'and symbol '= form))))
@@ -413,6 +423,14 @@
     (test-parse-list '! '(a) nil nil)
     (test-parse-list '! '(b) t 'b t)))
 
+(define-test list-test ()
+  (check
+    ;; (list 'a)
+    (test-parse-list 'list '() nil nil)
+    (test-parse-list 'list '(a) nil nil)
+    (test-parse-list 'list '((a)) t '(a))
+    (test-parse-list 'list '((b)) nil nil)))
+
 (define-test var-test ()
   (check
     (test-parse-list '(var 'a) '(a) t)
@@ -480,6 +498,8 @@
     (test-parse-list 'nest-and-+ '(a b) t '((a) (b)))
     (test-parse-list 'nest-and-+ '(a a b) t '((a a) (b)))
     (test-parse-list 'nest-and-+ '(a b b) t '((a) (b b)))
+
+    (test-parse-list 'nest-list-list '(((a))) t '((a)))
 ))
 
 (define-test loop-test ()
@@ -512,6 +532,7 @@
     (?-test)
     (&-test)
     (!-test)
+    (list-test)
     (var-test)
     (nesting-test)
     (loop-test)
