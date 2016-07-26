@@ -320,8 +320,8 @@
 (defrule loop-iteration-list () (and (or 'in 'on) form (? (and 'by form))))
 (defrule loop-iteration-flex () (and '= form (? (and 'then form))))
 (defrule loop-iteration-vector () (and 'across form))
-(defrule loop-iteration-key () (and (or 'hash-key 'hash-keys) (or 'of 'in) form (? (and 'using 'hash-value symbol)))) ;; FIXME
-(defrule loop-iteration-value () (and (or 'hash-value 'hash-values) (or 'of 'in) form (? (and 'using 'hash-key symbol)))) ;; FIXME
+(defrule loop-iteration-key () (and (or 'hash-key 'hash-keys) (or 'of 'in) form (? (and 'using (list (and 'hash-value symbol))))))
+(defrule loop-iteration-value () (and (or 'hash-value 'hash-values) (or 'of 'in) form (? (and 'using (list (and 'hash-key symbol))))))
 (defrule loop-iteration-package () (and (or 'symbol 'symbols 'present-symbol 'present-symbols 'external-symbol 'external-symbols) (or 'of 'in) form))
 (defrule loop-iteration-hash () (and 'being (or 'the 'each) (or loop-iteration-key loop-iteration-value loop-iteration-package)))
 (defrule loop-iteration-for-body () (or loop-iteration-list loop-iteration-flex loop-iteration-vector loop-iteration-hash loop-iteration-numeric))
@@ -510,8 +510,8 @@
     (test-parse-list 'loop '(named q for a in lst by #'cdr) t)
     (test-parse-list 'loop '(named q for a = 0 then (1+ a)) t)
     (test-parse-list 'loop '(named q for a across vec) t)
-    (test-parse-list 'loop '(named q for k being the hash-key of (hsh) using hash-value v) t)
-    (test-parse-list 'loop '(named q for v being the hash-value of (hsh) using hash-key v) t)
+    (test-parse-list 'loop '(named q for k being the hash-key of (hsh) using (hash-value v)) t)
+    (test-parse-list 'loop '(named q for v being the hash-value of (hsh) using (hash-key v)) t)
     (test-parse-list 'loop '(named q for k being the external-symbol of (pkg)) t)
     (test-parse-list 'loop '(for i in lst initially a b c while d) t)
     (test-parse-list 'loop '(for i in list repeat 5) t)
