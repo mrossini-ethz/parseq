@@ -298,11 +298,19 @@
 (defrule loop-iteration-for-body () (or loop-iteration-list loop-iteration-flex loop-iteration-vector loop-iteration-hash loop-iteration-numeric))
 (defrule loop-iteration-for () (and (or 'for 'as) symbol loop-iteration-for-body (* (and 'and symbol loop-iteration-for-body))))
 (defrule loop-iteration () (or loop-iteration-with loop-iteration-for))
-(defrule loop-around () (and (or 'initially 'finally) (+ (not loop-control)))) ;; FIXME infinite loop
+(defrule loop-around () (and (or 'initially 'finally) (+ (not loop-post-iteration))))
 (defrule loop-repeat () (and 'repeat form))
 (defrule loop-test () (and (or 'while 'until 'always 'never 'thereis) form))
 (defrule loop-control () (or loop-around loop-repeat loop-test))
-(defrule loop () (and (? loop-name) (* loop-iteration) (* loop-control)))
+(defrule loop-do () (and (or 'do 'doing) (+ (not loop-post-iteration))))
+(defrule loop-condition-and () (and loop-action (* (and 'and loop-action))))
+(defrule loop-condition () (and (or 'if 'when 'unless) form loop-condition-and (? (and 'else loop-condition-and)) (? 'end)))
+(defrule loop-return () (and 'return (or 'it form)))
+(defrule loop-collect () (and (or 'collect 'collecting 'append 'appending 'nconc 'nconcing) (or 'it form) (? (and 'into form))))
+(defrule loop-stat () (and (or 'count 'counting 'sum 'summing 'maximize 'maximizing 'minimize 'minimizing) (or 'it form) (? (and 'into form))))
+(defrule loop-action () (or loop-do loop-condition loop-return loop-collect loop-stat)) ;; +
+(defrule loop-post-iteration () (or loop-control loop-action))
+(defrule loop () (and (? loop-name) (* loop-iteration) (* loop-post-iteration)))
 
 (defun test-parse-list (expression list &optional success (result nil result-p) junk-allowed)
   (multiple-value-bind (rslt success-p) (parse-list expression list :junk-allowed junk-allowed)
@@ -466,9 +474,11 @@
     (test-parse-list 'loop '(named q for k being the hash-key of (hsh) using hash-value v) t)
     (test-parse-list 'loop '(named q for v being the hash-value of (hsh) using hash-key v) t)
     (test-parse-list 'loop '(named q for k being the external-symbol of (pkg)) t)
+    (test-parse-list 'loop '(for i in lst initially a b c while d) t)
     (test-parse-list 'loop '(for i in list repeat 5) t)
     (test-parse-list 'loop '(for i in list thereis (> i 0)) t)
-
+    (test-parse-list 'loop '(for i across vec when (> i 0) collecting it into q and summing i into n else maximize i into m and return 5 end) t)
+    (test-parse-list 'loop '(for i across vec unless (minusp i) count i into q) t)
 ))
 
 (define-test parse-list-test ()
