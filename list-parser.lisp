@@ -33,12 +33,14 @@
 
 (defmacro test-and-advance (test expr pos &optional (inc 1))
   `(with-gensyms (result ret)
-     `(let ((,result ,,test) (,ret ,,expr))
-        (if ,result
-            (progn
-              (incf ,,pos ,,inc)
-              (values ,ret t))
-            (values nil nil)))))
+     `(if (l> ,expr ,pos)
+          (let ((,result ,,test) (,ret ,,expr))
+            (if ,result
+                (progn
+                  (incf ,,pos ,,inc)
+                  (values ,ret t))
+                (values nil nil)))
+          (values nil nil))))
 
 (defmacro try-and-advance (test pos)
   `(with-gensyms (result success newpos)
@@ -125,19 +127,21 @@
     ;; Save the current position
     `(let ((,oldpos ,pos))
        (with-expansion-failure ((,result ,success) ,expr ,rule ,pos ,args)
-           ;; Expression failed, which is good
-           (let ((,result (nth ,pos ,expr)))
-             ;; Advance the position by one
-             (incf ,pos)
-             (values ,result t))
-           ;; Expression succeeded, which is bad
-           (progn
-             ;; Use the variable in order to avoid causing a warning
-             ,result
-             ;; Roll back the position
-             (setf ,pos ,oldpos)
-             ;; Return nil
-             (values nil nil))))))
+         ;; Expression failed, which is good (but only if we have not reached the end of expr)
+         (if (l> ,expr ,pos)
+             (let ((,result (nth ,pos ,expr)))
+               ;; Advance the position by one
+               (incf ,pos)
+               (values ,result t))
+             (values nil nil))
+         ;; Expression succeeded, which is bad
+         (progn
+           ;; Use the variable in order to avoid causing a warning
+           ,result
+           ;; Roll back the position
+           (setf ,pos ,oldpos)
+           ;; Return nil
+           (values nil nil))))))
 
 (defun expand-* (expr rule pos args)
    (with-gensyms (ret)
@@ -171,9 +175,11 @@
   (with-gensyms (oldpos result success)
     `(let ((,oldpos ,pos))
        (with-expansion-failure ((,result ,success) ,expr ,rule ,pos ,args)
-         ;; Failure, which is good
-         (let ((,result (nth ,pos ,expr)))
-           (values ,result t))
+         ;; Failure, which is good (but only if we're not at the end of expr)
+         (if (l> ,expr ,pos)
+             (let ((,result (nth ,pos ,expr)))
+               (values ,result t))
+             (values nil nil))
          ;; Success, which is bad
          (progn
            (setf ,pos ,oldpos)
@@ -298,8 +304,6 @@
 (defrule loop-control () (or loop-around loop-repeat loop-test))
 (defrule loop () (and (? loop-name) (* loop-iteration) (* loop-control)))
 
-(defrule bla () (not ugh))
-
 (defun test-parse-list (expression list &optional success (result nil result-p) junk-allowed)
   (multiple-value-bind (rslt success-p) (parse-list expression list :junk-allowed junk-allowed)
     (and (xnor success success-p) (or (not result-p) (equal rslt result)))))
@@ -335,6 +339,7 @@
 (define-test not-test ()
   (check
     ;; (not 'a)
+    (test-parse-list 'not '() nil nil)
     (test-parse-list 'not '(a) nil nil)
     (test-parse-list 'not '(b) t 'b)))
 
@@ -377,6 +382,7 @@
 (define-test !-test ()
   (check
     ;; (! 'a)
+    (test-parse-list '! '() nil nil)
     (test-parse-list '! '(a) nil nil)
     (test-parse-list '! '(b) t 'b t)))
 
