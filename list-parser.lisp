@@ -270,9 +270,34 @@
     ;; ... a list expression
     (t (expand-list-expr expr rule pos args))))
 
+(defun expand-destructure (destruct-lambda result body)
+  `(destructuring-bind ,destruct-lambda (mklist ,result) ,@body))
+
+(defun expand-processing-options (result options)
+  (if (null options)
+      ;; No processing options
+      result
+      ;; Have processing options
+      `(progn
+         ;; To avoid a warning about an unused variable
+         ;;,result
+         ;; Iterate the options. The last option will affect the returned result.
+         ,@(loop for opt in options
+              ;; Ensure the options are lists of at least one element
+              when (or (not (listp opt)) (l< opt 1)) do (error "Invalid processing option!")
+              else collect
+                (case (first opt)
+                  (:constant (second opt))
+                  (:lambda (expand-destructure (second opt) result (cddr opt)))
+                  (:destructure (expand-destructure (second opt) result (cddr opt)))
+                  (:function `(apply ,(second opt) (mklist ,result)))
+                  (:identity `(if ,(second opt) ,result))
+                  (:flatten `(if (listp ,result) (flatten ,result) ,result))
+                  )))))
+
 ;; defrule macro --------------------------------------------------------------
 
-(defmacro defrule (name lambda-list expr)
+(defmacro defrule (name lambda-list expr &body options)
   ;; Creates a lambda function that parses the given grammar rules.
   ;; It then stores the lambda function in the global list *list-parse-rule-table*,
   ;; therefore the rule functions use a namespace separate from everything
@@ -285,7 +310,7 @@
                (let ((,oldpos (treepos-copy ,pos)))
                  (with-expansion-success ((,result ,success) ,x ,expr ,pos ,lambda-list)
                    ;; Return the parsing result, the success and the new position
-                   (values ,result t ,pos)
+                   (values ,(expand-processing-options result options) t ,pos)
                    ;; Return nil as parsing result, failure and the old position
                    (values nil nil ,oldpos)))))))
 
