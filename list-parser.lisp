@@ -280,7 +280,7 @@
       ;; Have processing options
       `(progn
          ;; To avoid a warning about an unused variable
-         ;;,result
+         ,result
          ;; Iterate the options. The last option will affect the returned result.
          ,@(loop for opt in options
               ;; Ensure the options are lists of at least one element
@@ -295,6 +295,19 @@
                   (:flatten `(if (listp ,result) (flatten ,result) ,result))
                   )))))
 
+(defmacro with-special-vars ((&rest vars) &body body)
+  `(let (,@vars)
+     (declare (special ,@(loop for v in vars collect (if (listp v) (first v) v))))
+     ,@body))
+
+(defmacro with-special-vars-from-options (options &body body)
+  (let ((bindings (loop for opt in options
+                     when (or (not (listp opt)) (l< opt 1)) do (error "Invalid processing option.")
+                     when (eql (first opt) :let) append (rest opt))))
+    (if bindings
+        `(with-special-vars (,@bindings) ,@body)
+        `(progn ,@body))))
+
 ;; defrule macro --------------------------------------------------------------
 
 (defmacro defrule (name lambda-list expr &body options)
@@ -306,13 +319,14 @@
     `(setf (gethash ',name *list-parse-rule-table*)
            ;; The lambda function that parses according to the given grammar rules
            #'(lambda (,x ,pos ,@lambda-list)
-               ;; Save the previous parsing position and get the parsing result
-               (let ((,oldpos (treepos-copy ,pos)))
-                 (with-expansion-success ((,result ,success) ,x ,expr ,pos ,lambda-list)
-                   ;; Return the parsing result, the success and the new position
-                   (values ,(expand-processing-options result options) t ,pos)
-                   ;; Return nil as parsing result, failure and the old position
-                   (values nil nil ,oldpos)))))))
+               (with-special-vars-from-options ,options
+                 ;; Save the previous parsing position and get the parsing result
+                 (let ((,oldpos (treepos-copy ,pos)))
+                   (with-expansion-success ((,result ,success) ,x ,expr ,pos ,lambda-list)
+                     ;; Return the parsing result, the success and the new position
+                     (values ,(expand-processing-options result options) t ,pos)
+                     ;; Return nil as parsing result, failure and the old position
+                     (values nil nil ,oldpos))))))))
 
 ;; Test area ------------------------------------------------------------------
 
