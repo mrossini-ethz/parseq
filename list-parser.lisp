@@ -274,26 +274,26 @@
   `(destructuring-bind ,destruct-lambda (mklist ,result) ,@body))
 
 (defun expand-processing-options (result options)
-  (if (null options)
-      ;; No processing options
-      result
-      ;; Have processing options
-      `(progn
-         ;; To avoid a warning about an unused variable
-         ,result
-         ;; Iterate the options. The last option will affect the returned result.
-         ,@(loop for opt in options
-              ;; Ensure the options are lists of at least one element
-              when (or (not (listp opt)) (l< opt 1)) do (error "Invalid processing option!")
-              else collect
-                (case (first opt)
-                  (:constant (second opt))
-                  (:lambda (expand-destructure (second opt) result (cddr opt)))
-                  (:destructure (expand-destructure (second opt) result (cddr opt)))
-                  (:function `(apply ,(second opt) (mklist ,result)))
-                  (:identity `(if ,(second opt) ,result))
-                  (:flatten `(if (listp ,result) (flatten ,result) ,result))
-                  )))))
+  (let ((procs (loop for opt in options
+                  ;; Ensure the options are lists of at least one element
+                  when (or (not (listp opt)) (l< opt 1)) do (error "Invalid processing option!")
+                  when (have (first opt) '(:constant :lambda :destructure :function :identity :flatten))
+                             collect opt)))
+    (if (null procs)
+        result
+        `(progn
+           ;; To avoid a warning about an unused variable
+           ,result
+           ;; Execute the procs in order
+           ,@(loop for opt in procs collect
+                  (case (first opt)
+                    (:constant (second opt))
+                    (:lambda (expand-destructure (second opt) result (cddr opt)))
+                    (:destructure (expand-destructure (second opt) result (cddr opt)))
+                    (:function `(apply ,(second opt) (mklist ,result)))
+                    (:identity `(if ,(second opt) ,result))
+                    (:flatten `(if (listp ,result) (flatten ,result) ,result))
+                    ))))))
 
 (defmacro with-special-vars ((&rest vars) &body body)
   `(let (,@vars)
@@ -319,6 +319,7 @@
     `(setf (gethash ',name *list-parse-rule-table*)
            ;; The lambda function that parses according to the given grammar rules
            #'(lambda (,x ,pos ,@lambda-list)
+               (declare (special ,@(loop for opt in options when (eql (first opt) :external) append (rest opt))))
                (with-special-vars-from-options ,options
                  ;; Save the previous parsing position and get the parsing result
                  (let ((,oldpos (treepos-copy ,pos)))
