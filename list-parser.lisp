@@ -329,6 +329,14 @@
                      ;; Return nil as parsing result, failure and the old position
                      (values nil nil ,oldpos))))))))
 
+;; Namespace macros -----------------------------------------------------------
+
+(defmacro with-local-rules (&body body)
+  ;; Shadow the global rule table with a new hash table
+  `(let ((*list-parse-rule-table* (make-hash-table)))
+     ;; Execute the body
+     ,@body))
+
 ;; Test area ------------------------------------------------------------------
 
 (defrule sym () symbol)
