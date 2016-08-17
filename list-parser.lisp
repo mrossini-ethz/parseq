@@ -6,7 +6,7 @@
   (declare (ignore start end)) ;; FIXME
   (let ((pos '(0)))
     (multiple-value-bind (result success newpos) (parse-list-internal expression list pos)
-      (if (and success (or junk-allowed (l= list (first newpos))))
+      (if (and success (or junk-allowed (= (length list) (first newpos))))
           (values result t)
           (values nil nil)))))
 
@@ -31,21 +31,29 @@
 ;; Tree position functions ---------------------------------------------------
 
 (defun treepos-valid (pos tree)
-  (when (listp tree)
-      (if (l> pos 1)
-          (when (l> tree (first pos))
-              (treepos-valid (rest pos) (nth (first pos) tree)))
-          (l> tree (first pos)))))
+  (cond
+    ((listp tree)
+     (if (l> pos 1)
+         (when (l> tree (first pos))
+           (treepos-valid (rest pos) (nth (first pos) tree)))
+         (l> tree (first pos))))
+    (t (< (first pos) (length tree)))))
 
 (defun treeitem (pos tree)
-  (if (l> pos 1)
-      (treeitem (rest pos) (nth (first pos) tree))
-      (nth (first pos) tree)))
+  (cond
+    ((listp tree)
+     (if (l> pos 1)
+         (treeitem (rest pos) (nth (first pos) tree))
+         (nth (first pos) tree)))
+    (t (elt tree (first pos)))))
 
 (defun treepos-length (pos tree)
-  (if (l> pos 1)
-      (treepos-length (rest pos) (nth (first pos) tree))
-      (and (listp (nth (first pos) tree)) (list-length (nth (first pos) tree)))))
+  (cond
+    ((listp tree)
+     (if (l> pos 1)
+         (treepos-length (rest pos) (nth (first pos) tree))
+         (and (listp (nth (first pos) tree)) (list-length (nth (first pos) tree)))))
+    (t 1)))
 
 (defun treepos-step (pos &optional (delta 1))
   (let ((newpos (copy-tree pos)))
@@ -103,6 +111,10 @@
   (cond
     ;; Is a quoted symbol
     ((quoted-symbol-p rule) (test-and-advance `(symbol= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr) pos))
+    ;; Is a character
+    ((characterp rule) (test-and-advance `(char= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr) pos))
+    ;; Is a character string
+    ((stringp rule) (test-and-advance `(string= ,expr ,rule :start1 (first ,pos) :end1 (+ (first ,pos) (length ,rule))) `(subseq ,expr (first ,pos) (+ (first ,pos) (length ,rule))) pos (length rule)))
     ;; Is a lambda variable
     ((and (symbolp rule) (have rule args)) (test-and-advance `(symbol= (treeitem ,pos ,expr) (second ,rule)) `(treeitem ,pos ,expr) pos))
     ;; Is the symbol 'symbol'

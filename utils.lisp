@@ -8,6 +8,9 @@
 
 ;; List functions
 
+(defun mklist (item)
+  (if (listp item) item (list item)))
+
 (defun have (item sequence &key (test #'eql) (key #'identity))
   ;; Checks whether the given item is in the list
   (some #'(lambda (x) (funcall test item (funcall key x))) sequence))
