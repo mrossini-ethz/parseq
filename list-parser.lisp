@@ -115,6 +115,10 @@
     ((characterp rule) (test-and-advance `(char= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr) pos))
     ;; Is a character string
     ((stringp rule) (test-and-advance `(string= ,expr ,rule :start1 (first ,pos) :end1 (+ (first ,pos) (length ,rule))) `(subseq ,expr (first ,pos) (+ (first ,pos) (length ,rule))) pos (length rule)))
+    ;; Is a vector
+    ((vectorp rule) (test-and-advance `(sequence= ,expr ,rule :start1 (first ,pos) :end1 (+ (first ,pos) (length ,rule))) `(subseq ,expr (first ,pos) (+ (first ,pos) (length ,rule))) pos (length rule)))
+    ;; Is the symbol 'byte'
+    ((and (symbolp rule) (symbol= rule 'byte)) (test-and-advance `(let ((val (treeitem ,pos ,expr))) (and (integerp val) (>= val 0) (<= val 255))) `(treeitem ,pos ,expr) pos))
     ;; Is a lambda variable
     ((and (symbolp rule) (have rule args)) (test-and-advance `(symbol= (treeitem ,pos ,expr) (second ,rule)) `(treeitem ,pos ,expr) pos))
     ;; Is the symbol 'symbol'

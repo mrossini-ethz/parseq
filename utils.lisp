@@ -62,3 +62,9 @@
                       (if (eql (first clause) t)
                           clause
                           `((,test ,key ,(if (symbolp (first clause)) `(quote ,(first clause)) (first clause))) ,@(rest clause))))))))
+
+(defun sequence= (seq-a seq-b &key (start1 0) (start2 0) end1 end2 (test #'eql) (key #'identity))
+  (let ((a (subseq seq-a start1 end1))
+        (b (subseq seq-b start2 end2)))
+    (when (= (length a) (length b))
+      (loop for i below (length a) always (funcall test (funcall key (elt a i)) (funcall key (elt b i)))))))
