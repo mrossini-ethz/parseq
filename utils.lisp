@@ -22,12 +22,20 @@
     ((zerop length) nil)
     (t (l< (rest list) (- length 1)))))
 
+(defun l>= (list length)
+  "Tests efficiently whether the length of the list is greater or equal to the given length."
+  (not (l< list length)))
+
 (defun l> (list length)
   "Tests efficiently whether the length of the list is greater than the given length."
   (cond
     ((null list) nil)
     ((zerop length) (consp list))
     (t (l> (rest list) (- length 1)))))
+
+(defun l<= (list length)
+  "Tests efficiently whether the length of the list is smaller or equal to the given length."
+  (not (l> list length)))
 
 (defun l= (list length)
   "Tests efficiently whether the length of the list is equal to the given length."

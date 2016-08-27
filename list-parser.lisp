@@ -195,6 +195,19 @@
         t)
        (values nil nil))))
 
+(defun expand-rep (range expr rule pos args)
+  (let (min max)
+    (cond
+      ((or (symbolp range) (numberp range)) (setf min range max range))
+      ((and (listp range) (l= range 1)) (setf min 0 max (first range)))
+      ((and (listp range) (l= range 2)) (setf min (first range) max (second range)))
+      (t (error "Illegal range specified!")))
+    (with-gensyms (ret results n)
+      `(let ((,results (loop for ,n upfrom 0 for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (and (< ,n ,max) (second ,ret)) collect (first ,ret))))
+         (if (and (l>= ,results ,min) (l<= ,results ,max))
+             (values ,results t)
+             (values nil nil))))))
+
 (defun expand-? (expr rule pos args)
   (with-gensyms (result success)
     `(with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
@@ -266,6 +279,8 @@
     (! (expand-! expr (second rule) pos args))
     ;; list
     (list (expand-list expr (second rule) pos args))
+    ;; repetition
+    (rep (expand-rep (cadr rule) expr (caddr rule) pos args))
     ;; a call to another rule (with args)
     (t (try-and-advance (expand-parse-call expr rule pos args) pos))))
 
@@ -347,6 +362,3 @@
   `(let ((*list-parse-rule-table* (make-hash-table)))
      ;; Execute the body
      ,@body))
-
-;; Test area ------------------------------------------------------------------
-
