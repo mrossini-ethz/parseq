@@ -309,42 +309,30 @@
 (defun expand-destructure (destruct-lambda result body)
   `(destructuring-bind ,destruct-lambda (mklist ,result) ,@body))
 
-(defun expand-test-options (result options)
-  (let ((tests (loop for opt in options
-                  ;; Ensure the options are lists of at least one element
-                  when (or (not (listp opt)) (l< opt 1)) do (error "Invalid processing option!")
-                  when (have (first opt) '(:test :not)) collect opt)))
-    (if (null tests)
-        ;; If there are no tests, return success
-        t
-        ;; Run the tests in order
-        `(and
-           ,@(loop for test in tests collect
-                  (case (first test)
-                    (:test (expand-destructure (second test) result (cddr test)))
-                    (:not `(not ,(expand-destructure (second test) result (cddr test))))))))))
-
 (defun expand-processing-options (result options)
-  (let ((procs (loop for opt in options
-                  ;; Ensure the options are lists of at least one element
-                  when (or (not (listp opt)) (l< opt 1)) do (error "Invalid processing option!")
-                  when (have (first opt) '(:constant :lambda :destructure :function :identity :flatten))
-                             collect opt)))
-    (if (null procs)
-        result
-        `(progn
-           ;; To avoid a warning about an unused variable
-           ,result
-           ;; Execute the procs in order
-           ,@(loop for opt in procs collect
-                  (case (first opt)
-                    (:constant (second opt))
-                    (:lambda (expand-destructure (second opt) result (cddr opt)))
-                    (:destructure (expand-destructure (second opt) result (cddr opt)))
-                    (:function `(apply ,(second opt) (mklist ,result)))
-                    (:identity `(if ,(second opt) ,result))
-                    (:flatten `(if (listp ,result) (flatten ,result) ,result))
-                    ))))))
+  (with-gensyms (blockname tmp)
+    (let ((procs (loop for opt in options
+                    ;; Ensure the options are lists of at least one element
+                    when (or (not (listp opt)) (l< opt 1)) do (error "Invalid processing option!")
+                    when (have (first opt) '(:constant :lambda :destructure :function :identity :flatten :test :not))
+                    collect opt)))
+      (if (null procs)
+          `(values ,result t)
+          `(block ,blockname
+             ;; Save the result in a temporary variable
+             (let ((,tmp ,result))
+               ;; Execute the procs in order
+               ,@(loop for opt in procs collect
+                      (case (first opt)
+                        (:constant `(setf ,tmp ,(second opt)))
+                        (:lambda `(setf ,tmp ,(expand-destructure (second opt) tmp (cddr opt))))
+                        (:destructure `(setf ,tmp ,(expand-destructure (second opt) tmp (cddr opt))))
+                        (:function `(setf ,tmp (apply ,(second opt) (mklist ,tmp))))
+                        (:identity `(unless ,(second opt) (setf ,tmp nil)))
+                        (:flatten `(setf ,tmp (if (listp ,result) (flatten ,result) ,tmp)))
+                        (:test `(unless ,(expand-destructure (second opt) tmp (cddr opt)) (return-from ,blockname)))
+                        (:not `(when ,(expand-destructure (second opt) tmp (cddr opt)) (return-from ,blockname)))))
+               (values ,tmp t)))))))
 
 (defmacro with-special-vars ((&rest vars) &body body)
   `(let (,@vars)
@@ -369,18 +357,19 @@
     ;; Save the lambda function in the namespace table
     `(setf (gethash ',name *list-parse-rule-table*)
            ;; The lambda function that parses according to the given grammar rules
-           #'(lambda (,x ,pos ,@lambda-list)
-               (declare (special ,@(loop for opt in options when (eql (first opt) :external) append (rest opt))))
-               (with-special-vars-from-options ,options
-                 ;; Save the previous parsing position and get the parsing result
-                 (let ((,oldpos (treepos-copy ,pos)))
-                   (with-expansion-success ((,result ,success) ,x ,expr ,pos ,lambda-list)
-                     ;; Return the parsing result, the success and the new position
-                     (if ,(expand-test-options result options)
-                      (values ,(expand-processing-options result options) t ,pos)
-                      (values nil nil ,oldpos))
-                     ;; Return nil as parsing result, failure and the old position
-                     (values nil nil ,oldpos))))))))
+           (lambda (,x ,pos ,@lambda-list)
+             (declare (special ,@(loop for opt in options when (eql (first opt) :external) append (rest opt))))
+             (with-special-vars-from-options ,options
+               ;; Save the previous parsing position and get the parsing result
+               (let ((,oldpos (treepos-copy ,pos)))
+                 (with-expansion-success ((,result ,success) ,x ,expr ,pos ,lambda-list)
+                   ;; Return the parsing result, the success and the new position
+                   (multiple-value-bind (,result ,success) ,(expand-processing-options result options)
+                     (if ,success
+                         (values ,result t ,pos)
+                         (values nil nil ,oldpos)))
+                   ;; Return nil as parsing result, failure and the old position
+                   (values nil nil ,oldpos))))))))
 
 ;; Namespace macros -----------------------------------------------------------
 
