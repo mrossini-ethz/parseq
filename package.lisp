@@ -1,5 +1,5 @@
-(defpackage :parser
+(defpackage :parseq
   (:use :common-lisp)
   (:export defrule
-           parse-list))
+           parseq))
 

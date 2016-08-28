@@ -1,4 +1,4 @@
-(in-package :parser)
+(in-package :parseq)
 
 ;; Macro utilities
 

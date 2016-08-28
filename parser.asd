@@ -1,7 +1,7 @@
 (in-package :asdf-user)
 
-(defsystem "parser"
-  :description "Parser"
+(defsystem "parseq"
+  :description "A parser for all kinds of sequences (and even trees)."
   :version "0.1"
   :author "Marco Rossini"
   :components ((:file "package")

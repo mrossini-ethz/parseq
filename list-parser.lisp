@@ -1,29 +1,29 @@
-(in-package :parser)
+(in-package :parseq)
 
 (defparameter *list-parse-rule-table* (make-hash-table))
 
-(defun parse-list (expression list &key start end junk-allowed)
+(defun parseq (rule sequence &key start end junk-allowed)
   (declare (ignore start end)) ;; FIXME
   (let ((pos '(0)))
-    (multiple-value-bind (result success newpos) (parse-list-internal expression list pos)
-      (if (and success (or junk-allowed (= (length list) (first newpos))))
+    (multiple-value-bind (result success newpos) (parseq-internal rule sequence pos)
+      (if (and success (or junk-allowed (= (length sequence) (first newpos))))
           (values result t)
           (values nil nil)))))
 
-(defun parse-list-internal (expression list pos)
+(defun parseq-internal (rule sequence pos)
   (cond
-    ;; Expression is nil
-    ((null expression) (null list))
-    ;; Expression is a named rule (without args)
-    ((symbolp expression) (let ((fun (gethash expression *list-parse-rule-table*)))
+    ;; Rule is nil
+    ((null rule) (null sequence))
+    ;; Rule is a named rule (without args)
+    ((symbolp rule) (let ((fun (gethash rule *list-parse-rule-table*)))
                             (if fun
-                                (funcall fun list pos)
-                                (error (format nil "Unknown rule `~a'." expression)))))
-    ;; Expression is a named rule (with args)
-    ((listp expression) (let ((fun (gethash (first expression) *list-parse-rule-table*)))
+                                (funcall fun sequence pos)
+                                (error (format nil "Unknown rule `~a'." rule)))))
+    ;; Rule is a named rule (with args)
+    ((listp rule) (let ((fun (gethash (first rule) *list-parse-rule-table*)))
                           (if fun
-                              (apply fun list pos (rest expression))
-                              (error (format nil "Unknown rule `(~a ...)'." expression)))))))
+                              (apply fun sequence pos (rest rule))
+                              (error (format nil "Unknown rule `(~a ...)'." rule)))))))
 
 (defun quoted-symbol-p (x)
   (and (listp x) (l= x 2) (eql (first x) 'quote) (symbolp (second x))))
@@ -132,7 +132,7 @@
     ;; Is the symbol 'form'
     ((and (symbolp rule) (symbol= rule 'form)) (test-and-advance expr pos t `(treeitem ,pos, expr)))
     ;; Is a call to another rule (without args)
-    ((symbolp rule) (try-and-advance `(parse-list-internal ',rule ,expr ,pos) pos))
+    ((symbolp rule) (try-and-advance `(parseq-internal ',rule ,expr ,pos) pos))
     ))
 
 (defmacro cond-or (&rest clauses)
@@ -265,8 +265,8 @@
          (values nil nil))))
 
 (defun expand-parse-call (expr rule pos args)
-  ;; Makes a call to `parse-list-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
-  `(parse-list-internal `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
+  ;; Makes a call to `parseq-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
+  `(parseq-internal `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
 
 (defun expand-list-expr (expr rule pos args)
   ;; Rule is a ...
