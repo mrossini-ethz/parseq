@@ -5,6 +5,6 @@
   :version "0.1"
   :author "Marco Rossini"
   :components ((:file "package")
-               (:file "list-parser" :depends-on ("package" "utils"))
+               (:file "defrule" :depends-on ("package" "utils"))
                (:file "utils" :depends-on ("package"))
                ))
