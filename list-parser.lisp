@@ -309,6 +309,21 @@
 (defun expand-destructure (destruct-lambda result body)
   `(destructuring-bind ,destruct-lambda (mklist ,result) ,@body))
 
+(defun expand-test-options (result options)
+  (let ((tests (loop for opt in options
+                  ;; Ensure the options are lists of at least one element
+                  when (or (not (listp opt)) (l< opt 1)) do (error "Invalid processing option!")
+                  when (have (first opt) '(:test :not)) collect opt)))
+    (if (null tests)
+        ;; If there are no tests, return success
+        t
+        ;; Run the tests in order
+        `(and
+           ,@(loop for test in tests collect
+                  (case (first test)
+                    (:test (expand-destructure (second test) result (cddr test)))
+                    (:not `(not ,(expand-destructure (second test) result (cddr test))))))))))
+
 (defun expand-processing-options (result options)
   (let ((procs (loop for opt in options
                   ;; Ensure the options are lists of at least one element
@@ -361,7 +376,9 @@
                  (let ((,oldpos (treepos-copy ,pos)))
                    (with-expansion-success ((,result ,success) ,x ,expr ,pos ,lambda-list)
                      ;; Return the parsing result, the success and the new position
-                     (values ,(expand-processing-options result options) t ,pos)
+                     (if ,(expand-test-options result options)
+                      (values ,(expand-processing-options result options) t ,pos)
+                      (values nil nil ,oldpos))
                      ;; Return nil as parsing result, failure and the old position
                      (values nil nil ,oldpos))))))))
 
