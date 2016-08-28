@@ -98,6 +98,15 @@
 (defmacro with-expansion-failure (((result-var success-var) expr rule pos args) then else)
   `(with-expansion-success ((,result-var ,success-var) ,expr ,rule ,pos ,args) ,else ,then))
 
+;; Runtime dispatch ----------------------------------------------------------
+
+(defun runtime-dispatch (expr arg pos)
+  (cond
+    ((symbolp arg) (if (symbol= arg (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))
+    ((characterp arg) (if (char= arg (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))
+    ((stringp arg) (if (subseq-at arg expr (first pos)) (values arg t (treepos-step pos (length arg))) (values nil nil nil)))
+    ((vectorp arg) (if (subseq-at arg expr (first pos)) (values arg t (treepos-step pos (length arg))) (values nil nil nil)))))
+
 ;; Expansion functions -----------------------------------------------
 
 ;; These are helper functions for the defrule macro.
@@ -119,8 +128,8 @@
     ((vectorp rule) (test-and-advance `(sequence= ,expr ,rule :start1 (first ,pos) :end1 (+ (first ,pos) (length ,rule))) `(subseq ,expr (first ,pos) (+ (first ,pos) (length ,rule))) pos (length rule)))
     ;; Is the symbol 'byte'
     ((and (symbolp rule) (symbol= rule 'byte)) (test-and-advance `(let ((val (treeitem ,pos ,expr))) (and (integerp val) (>= val 0) (<= val 255))) `(treeitem ,pos ,expr) pos))
-    ;; Is a lambda variable
-    ((and (symbolp rule) (have rule args)) (test-and-advance `(symbol= (treeitem ,pos ,expr) (second ,rule)) `(treeitem ,pos ,expr) pos))
+    ;; Is a lambda variable. Since we don't know what the value is at compile time, we have to dispatch at runtime
+    ((and (symbolp rule) (have rule args)) (try-and-advance `(runtime-dispatch ,expr ,rule ,pos) pos))
     ;; Is the symbol 'symbol'
     ((and (symbolp rule) (symbol= rule 'symbol)) (test-and-advance `(symbolp (treeitem ,pos ,expr)) `(treeitem, pos, expr) pos))
     ;; Is the symbol 'form'

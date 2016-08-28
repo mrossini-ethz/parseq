@@ -68,3 +68,9 @@
         (b (subseq seq-b start2 end2)))
     (when (= (length a) (length b))
       (loop for i below (length a) always (funcall test (funcall key (elt a i)) (funcall key (elt b i)))))))
+
+(defun subseq-at (subseq seq pos)
+  (let ((len (length subseq)))
+    ;; Ensure seq is long enough
+    (when (<= len (- (length seq) pos))
+      (sequence= subseq seq :start2 pos :end2 (+ pos len)))))
