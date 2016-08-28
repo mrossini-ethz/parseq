@@ -74,3 +74,6 @@
     ;; Ensure seq is long enough
     (when (<= len (- (length seq) pos))
       (sequence= subseq seq :start2 pos :end2 (+ pos len)))))
+
+(defun unsigned-byte-p (object)
+  (and (integerp object) (>= object 0) (<= object 255)))

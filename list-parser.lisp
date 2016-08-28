@@ -65,16 +65,13 @@
 
 ;; Expansion helper macros ---------------------------------------------------
 
-(defmacro test-and-advance (test expr pos &optional (inc 1))
-  `(with-gensyms (result ret)
-     `(if (treepos-valid ,pos ,expr)
-          (let ((,result ,,test) (,ret ,,expr))
-            (if ,result
-                (progn
-                  (setf ,,pos (treepos-step ,,pos ,,inc))
-                  (values ,ret t))
-                (values nil nil)))
-          (values nil nil))))
+(defmacro test-and-advance (expr pos test result &optional (inc 1))
+  `(with-gensyms (tmp)
+     `(when (treepos-valid ,,pos ,,expr)
+        (when ,,test
+          (let ((,tmp ,,result))
+            (setf ,,pos (treepos-step ,,pos ,,inc))
+            (values ,tmp t))))))
 
 (defmacro try-and-advance (test pos)
   `(with-gensyms (result success newpos)
@@ -102,7 +99,7 @@
 
 (defun runtime-dispatch (expr arg pos)
   (cond
-    ((symbolp arg) (if (symbol= arg (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))
+    ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))
     ((characterp arg) (if (char= arg (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))
     ((stringp arg) (if (subseq-at arg expr (first pos)) (values arg t (treepos-step pos (length arg))) (values nil nil nil)))
     ((vectorp arg) (if (subseq-at arg expr (first pos)) (values arg t (treepos-step pos (length arg))) (values nil nil nil)))))
@@ -119,21 +116,21 @@
 (defun expand-atom (expr rule pos args)
   (cond
     ;; Is a quoted symbol
-    ((quoted-symbol-p rule) (test-and-advance `(symbol= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr) pos))
+    ((quoted-symbol-p rule) (test-and-advance expr pos `(symbol= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr)))
     ;; Is a character
-    ((characterp rule) (test-and-advance `(char= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr) pos))
+    ((characterp rule) (test-and-advance expr pos `(char= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr)))
     ;; Is a character string
-    ((stringp rule) (test-and-advance `(string= ,expr ,rule :start1 (first ,pos) :end1 (+ (first ,pos) (length ,rule))) `(subseq ,expr (first ,pos) (+ (first ,pos) (length ,rule))) pos (length rule)))
+    ((stringp rule) (test-and-advance expr pos `(subseq-at ,rule ,expr (first ,pos)) rule (length rule)))
     ;; Is a vector
-    ((vectorp rule) (test-and-advance `(sequence= ,expr ,rule :start1 (first ,pos) :end1 (+ (first ,pos) (length ,rule))) `(subseq ,expr (first ,pos) (+ (first ,pos) (length ,rule))) pos (length rule)))
+    ((vectorp rule) (test-and-advance expr pos `(sequence= ,expr ,rule :start1 (first ,pos) :end1 (+ (first ,pos) (length ,rule))) rule (length rule)))
     ;; Is the symbol 'byte'
-    ((and (symbolp rule) (symbol= rule 'byte)) (test-and-advance `(let ((val (treeitem ,pos ,expr))) (and (integerp val) (>= val 0) (<= val 255))) `(treeitem ,pos ,expr) pos))
+    ((and (symbolp rule) (symbol= rule 'byte)) (test-and-advance expr pos `(unsigned-byte-p (treeitem ,pos ,expr)) `(treeitem ,pos ,expr)))
     ;; Is a lambda variable. Since we don't know what the value is at compile time, we have to dispatch at runtime
     ((and (symbolp rule) (have rule args)) (try-and-advance `(runtime-dispatch ,expr ,rule ,pos) pos))
     ;; Is the symbol 'symbol'
-    ((and (symbolp rule) (symbol= rule 'symbol)) (test-and-advance `(symbolp (treeitem ,pos ,expr)) `(treeitem, pos, expr) pos))
+    ((and (symbolp rule) (symbol= rule 'symbol)) (test-and-advance expr pos `(symbolp (treeitem ,pos ,expr)) `(treeitem, pos, expr)))
     ;; Is the symbol 'form'
-    ((and (symbolp rule) (symbol= rule 'form)) (test-and-advance t `(treeitem ,pos, expr) pos))
+    ((and (symbolp rule) (symbol= rule 'form)) (test-and-advance expr pos t `(treeitem ,pos, expr)))
     ;; Is a call to another rule (without args)
     ((symbolp rule) (try-and-advance `(parse-list-internal ',rule ,expr ,pos) pos))
     ))
