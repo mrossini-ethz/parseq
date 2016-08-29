@@ -119,21 +119,35 @@
     ((quoted-symbol-p rule) (test-and-advance expr pos `(symbol= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr)))
     ;; Is a character
     ((characterp rule) (test-and-advance expr pos `(char= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr)))
-    ;; Is a character string
+    ;; Is a string
     ((stringp rule) (test-and-advance expr pos `(subseq-at ,rule ,expr (first ,pos)) rule (length rule)))
     ;; Is a vector
     ((vectorp rule) (test-and-advance expr pos `(sequence= ,expr ,rule :start1 (first ,pos) :end1 (+ (first ,pos) (length ,rule))) rule (length rule)))
-    ;; Is the symbol 'byte'
-    ((and (symbolp rule) (symbol= rule 'byte)) (test-and-advance expr pos `(unsigned-byte-p (treeitem ,pos ,expr)) `(treeitem ,pos ,expr)))
-    ;; Is a lambda variable. Since we don't know what the value is at compile time, we have to dispatch at runtime
-    ((and (symbolp rule) (have rule args)) (try-and-advance `(runtime-dispatch ,expr ,rule ,pos) pos))
-    ;; Is the symbol 'symbol'
-    ((and (symbolp rule) (symbol= rule 'symbol)) (test-and-advance expr pos `(symbolp (treeitem ,pos ,expr)) `(treeitem, pos, expr)))
-    ;; Is the symbol 'form'
-    ((and (symbolp rule) (symbol= rule 'form)) (test-and-advance expr pos t `(treeitem ,pos, expr)))
-    ;; Is a call to another rule (without args)
-    ((symbolp rule) (try-and-advance `(parseq-internal ',rule ,expr ,pos) pos))
-    ))
+    ;; Is a number
+    ((numberp rule) (test-and-advance expr pos `(= ,rule (treeitem ,pos ,expr)) rule))
+    ;; Is a symbol
+    ((symbolp rule)
+     (cond
+       ;; Is a lambda variable. Since we don't know what the value is at compile time, we have to dispatch at runtime
+       ((have rule args) (try-and-advance `(runtime-dispatch ,expr ,rule ,pos) pos))
+       ;; Is the symbol 'char'
+       ((symbol= rule 'char) (test-and-advance expr pos `(characterp (treeitem ,pos ,expr)) `(treeitem, pos, expr)))
+       ;; Is the symbol 'byte'
+       ((symbol= rule 'byte) (test-and-advance expr pos `(unsigned-byte-p (treeitem ,pos ,expr)) `(treeitem ,pos ,expr)))
+       ;; Is the symbol 'symbol'
+       ((symbol= rule 'symbol) (test-and-advance expr pos `(symbolp (treeitem ,pos ,expr)) `(treeitem, pos, expr)))
+       ;; Is the symbol 'form'
+       ((symbol= rule 'form) (test-and-advance expr pos t `(treeitem ,pos, expr)))
+       ;; Is the symbol 'list'
+       ((symbol= rule 'list) (test-and-advance expr pos `(listp (treeitem ,pos ,expr)) `(treeitem, pos, expr)))
+       ;; Is the symbol 'vector'
+       ((symbol= rule 'vector) (test-and-advance expr pos `(vectorp (treeitem ,pos ,expr)) `(treeitem, pos, expr)))
+       ;; Is the symbol 'number'
+       ((symbol= rule 'number) (test-and-advance expr pos `(numberp (treeitem ,pos ,expr)) `(treeitem, pos, expr)))
+       ;; Is the symbol 'string'
+       ((symbol= rule 'string) (test-and-advance expr pos `(stringp (treeitem ,pos ,expr)) `(treeitem, pos, expr)))
+       ;; Is a call to another rule (without args)
+       (t (try-and-advance `(parseq-internal ',rule ,expr ,pos) pos))))))
 
 (defmacro cond-or (&rest clauses)
   ;; Helper macro for expand-or. Works like cond, but operates on the two values returned by each clause.

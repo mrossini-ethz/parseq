@@ -47,18 +47,24 @@ There are some extra arguments, however, that are explained below.
 ## Terminals
 Terminal are the objects that the parse rules finally expand into.
 
- * Quoted symbols stand for lisp symbols, i.e. `'foo` stands for the symbol `foo`
  * `symbol` stands for any lisp symbol
  * `form` matches literally everything
- * `byte` matches an unsigned byte
+ * `char` matches any character
+ * `byte` matches any unsigned byte
+ * `number` matches any number
+ * `list` matches any list
+ * `vector` matches any vector
+ * `string` matches any string
 
-To facilitate the usage, characters, strings and vectors can be specified to match subsequences in the sequence being parsed:
+Literal values can be specified to match specific items or subsequences in the sequence being parsed:
 
- * `#\f` matches the character 'f' in a string
+ * `'foo` matches the symbol `foo`
+ * `#\f` matches the character 'f'
  * `"foo"` matches the sequence "foo" in a string
- * `#(1 2 3)` matches the the sequence `#(1 2 3)` in an array
+ * `#(1 2 3)` matches the the sequence `#(1 2 3)` in a vector
+ * `5` matches the number 5
 
-Many more terminals may be available in later versions of parseq.
+More terminals may be available in later versions of parseq.
 
 ## Nonterminals
 The following nonterminals are available:
