@@ -31,29 +31,28 @@
 ;; Tree position functions ---------------------------------------------------
 
 (defun treepos-valid (pos tree)
-  (cond
-    ((listp tree)
-     (if (l> pos 1)
-         (when (l> tree (first pos))
-           (treepos-valid (rest pos) (nth (first pos) tree)))
-         (l> tree (first pos))))
-    (t (< (first pos) (length tree)))))
+  (when (and (sequencep tree) (not (minusp (first pos))))
+    (if (l> pos 1)
+        ;; Not toplevel
+        (when (> (length tree) (first pos))
+          ;; Descend into the toplevel item to recursively check the sublevel
+          (treepos-valid (rest pos) (elt tree (first pos))))
+        ;; Toplevel. Check whether the list is longer than the position index.
+        (> (length tree) (first pos)))))
 
 (defun treeitem (pos tree)
-  (cond
-    ((listp tree)
-     (if (l> pos 1)
-         (treeitem (rest pos) (nth (first pos) tree))
-         (nth (first pos) tree)))
-    (t (elt tree (first pos)))))
+  (if (and (sequencep tree) (consp pos))
+      (if (l> pos 1)
+          (treeitem (rest pos) (elt tree (first pos)))
+          (elt tree (first pos)))
+      tree))
 
 (defun treepos-length (pos tree)
-  (cond
-    ((listp tree)
+  (if (sequencep tree)
      (if (l> pos 1)
          (treepos-length (rest pos) (nth (first pos) tree))
-         (and (listp (nth (first pos) tree)) (list-length (nth (first pos) tree)))))
-    (t 1)))
+         (and (sequencep (elt tree (first pos))) (length (elt tree (first pos)))))
+     (error "Attempting to descend into a non-sequence type.")))
 
 (defun treepos-step (pos &optional (delta 1))
   (let ((newpos (copy-tree pos)))
@@ -101,8 +100,9 @@
   (cond
     ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))
     ((characterp arg) (if (char= arg (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))
-    ((stringp arg) (if (subseq-at arg expr (first pos)) (values arg t (treepos-step pos (length arg))) (values nil nil nil)))
-    ((vectorp arg) (if (subseq-at arg expr (first pos)) (values arg t (treepos-step pos (length arg))) (values nil nil nil)))))
+    ((stringp arg) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg))) (values nil nil nil)))
+    ((vectorp arg) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg))) (values nil nil nil)))
+    ((numberp arg) (if (= arg (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))))
 
 ;; Expansion functions -----------------------------------------------
 
@@ -120,9 +120,9 @@
     ;; Is a character
     ((characterp rule) (test-and-advance expr pos `(char= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr)))
     ;; Is a string
-    ((stringp rule) (test-and-advance expr pos `(subseq-at ,rule ,expr (first ,pos)) rule (length rule)))
+    ((stringp rule) (test-and-advance expr pos `(subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos)) rule (length rule)))
     ;; Is a vector
-    ((vectorp rule) (test-and-advance expr pos `(sequence= ,expr ,rule :start1 (first ,pos) :end1 (+ (first ,pos) (length ,rule))) rule (length rule)))
+    ((vectorp rule) (test-and-advance expr pos `(subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos)) rule (length rule)))
     ;; Is a number
     ((numberp rule) (test-and-advance expr pos `(= ,rule (treeitem ,pos ,expr)) rule))
     ;; Is a symbol
@@ -260,23 +260,20 @@
            (setf ,pos ,oldpos)
            (values ,result nil))))))
 
-(defun expand-list (expr rule pos args)
+(defun expand-sequence (expr rule pos args type-test)
   (with-gensyms (result success length)
-    `(if (listp (treeitem ,pos ,expr))
-         (let ((,length (treepos-length ,pos ,expr)))
-           ;; Go into the list
-           (appendf ,pos 0)
-           (with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
-             ;; Success
-             (if (= (last-1 ,pos) ,length)
-                 (progn
-                   ;; Step out of the list and increment the position
-                   (setf ,pos (treepos-step (butlast ,pos)))
-                   (values (list ,result) t))
-                 (values nil nil))
-             ;; Failure
-             (values nil nil)))
-         (values nil nil))))
+    `(when (and (treepos-valid ,pos ,expr) (funcall #',type-test (treeitem ,pos ,expr)))
+       (let ((,length (treepos-length ,pos ,expr)))
+         ;; Go into the list
+         (appendf ,pos 0)
+         (with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
+           ;; Success
+           (when (= (last-1 ,pos) ,length)
+             ;; Step out of the list and increment the position
+             (setf ,pos (treepos-step (butlast ,pos)))
+             (values (list ,result) t))
+           ;; Failure
+           (values nil nil))))))
 
 (defun expand-parse-call (expr rule pos args)
   ;; Makes a call to `parseq-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
@@ -302,7 +299,11 @@
     ;; not-followed-by predicate
     (! (expand-! expr (second rule) pos args))
     ;; list
-    (list (expand-list expr (second rule) pos args))
+    (list (expand-sequence expr (second rule) pos args 'listp))
+    ;; string
+    (string (expand-sequence expr (second rule) pos args 'stringp))
+    ;; vector
+    (vector (expand-sequence expr (second rule) pos args 'vectorp))
     ;; repetition
     (rep (expand-rep (cadr rule) expr (caddr rule) pos args))
     ;; a call to another rule (with args)

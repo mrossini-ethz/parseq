@@ -139,8 +139,10 @@ Consumes no input and the subexpression which _does not_ match the subexpression
 ### Nesting
 ```lisp
 (list subexpression)
+(string subexpression)
+(vector subexpression)
 ```
-Succeeds if the current item in the sequence is a list and the list items match the subexpression.
+Succeeds if the current item in the sequence is a list/string/vector and its content matches the subexpression.
 Returns a list with the subexpression result.
 
 ## Rule arguments
@@ -285,9 +287,6 @@ You can use local namespaces for rule names:
 ## Upcoming features
 These features _may_ be implemented in the future:
 
- * nonterminals for nesting, similar to `(list ...)` :
-   * `(vector ...)`
-   * `(string ...)`
  * nonterminal for unordered sequences
    * `(and~ ...)` : all subexpressions required
    * `(and+ ...)` : some subexpressions required
