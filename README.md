@@ -282,6 +282,26 @@ You can use local namespaces for rule names:
   (parseq ...))
 ```
 
+## Upcoming features
+These features _may_ be implemented in the future:
+
+ * nonterminals for nesting, similar to `(list ...)` :
+   * `(vector ...)`
+   * `(string ...)`
+ * nonterminal for unordered sequences
+   * `(and~ ...)` : all subexpressions required
+   * `(and+ ...)` : some subexpressions required
+   * `(and* ...)` : any number of subexpressions
+   * variants of the above that allow for duplicates
+ * short forms for combined nonterminals, e.g.
+   * `(? (and ...))`
+   * `(? (or ...))`
+ * rule tracing
+ * support for streams
+ * custom terminals
+ * custom non-terminals
+ * custom sequences, i.e. parse _anything_
+
 ## Warnings
 Please heed the following warnings:
 
