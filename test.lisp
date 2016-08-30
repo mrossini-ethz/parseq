@@ -1,14 +1,7 @@
-(require :asdf)
-(push #p"./" asdf:*central-registry*)
-(asdf:load-system :parseq)
-(use-package :parseq)
+(in-package :parseq)
 
 (defvar *test-name* nil)
 (defvar *test-failures* 0)
-
-(defmacro with-gensyms ((&rest names) &body body)
-  `(let ,(loop for n in names collect `(,n (gensym (concatenate 'string (symbol-name ',n) "-"))))
-     ,@body))
 
 (defmacro condition= (form condition)
   "Tests whether the execution of the form results in the given condition (returning T). If no condition or a different condition occurs, NIL is returned."
@@ -346,7 +339,4 @@
     (var-test)
     (atom-test)
     (nesting-test)
-    (loop-test)
-))
-
-(parseq-test)
+    (loop-test)))
