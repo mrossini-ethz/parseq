@@ -16,7 +16,7 @@
   :license "GPLv2"
   :depends-on (:esrap)
   :components ((:file "test/unit-test")
-               (:file "test" :depends-on ("test/unit-test"))))
+               (:file "test/test" :depends-on ("test/unit-test"))))
 
 (defmethod perform ((operation test-op) (system (eql (find-system :parseq-test))))
   (funcall (intern "PARSEQ-TEST" :parseq)))
