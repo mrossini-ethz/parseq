@@ -26,7 +26,9 @@
 (defrule nonterminal-string () (string #\a))
 (defrule nonterminal-vector () (vector 4))
 
-(defrule var (x) x)
+(defrule parameter-terminal (x) x)
+(defrule parameter-repeat (x) (rep x 'a))
+(defrule parameter-constant (x) 'a (:constant x))
 
 (defrule nest-or-and () (or (and 'a 'b) (and 'a 'c) (and 'd 'e)))
 (defrule nest-and-or () (and (or 'a 'b) (or 'a 'c) (or 'd 'e)))
@@ -204,10 +206,13 @@
     (test-parseq 'nonterminal-vector '(#(4 5)) nil nil)
     (test-parseq 'nonterminal-vector '((4)) nil nil)))
 
-(define-test var-test ()
+(define-test parameter-test ()
   (check
-    (test-parseq '(var 'a) '(a) t)
-    (test-parseq '(var 'a) '(b) nil)))
+    (test-parseq '(parameter-terminal 'a) '(a) t)
+    (test-parseq '(parameter-terminal 'a) '(b) nil)
+    (test-parseq '(parameter-repeat 3) '(a a a) t '(a a a))
+    (test-parseq '(parameter-repeat 3) '(a a) nil nil)
+    (test-parseq '(parameter-constant b) '(a) t 'b)))
 
 (define-test nesting-test ()
   (check
@@ -307,6 +312,6 @@
     (list-test)
     (string-test)
     (vector-test)
-    (var-test)
+    (parameter-test)
     (nesting-test)
     (loop-test)))
