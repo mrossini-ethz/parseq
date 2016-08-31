@@ -33,6 +33,20 @@
 (defrule parameter-repeat (x) (rep x 'a))
 (defrule parameter-constant (x) 'a (:constant x))
 
+(defrule option-constant () (and 'a 'b 'c) (:constant 4))
+(defrule option-lambda () (and 'a 'b 'c) (:lambda (x y z) (list z y x)))
+(defrule option-lambda-rest () (and 'a 'b 'c) (:lambda (&rest items) (reverse items)))
+(defrule option-destructure () (and (* 'a) 'b) (:destructure ((&rest a) b) `(,@a ,b)))
+(defrule option-identity-t () (and 'a 'b 'c) (:identity t))
+(defrule option-identity-n () (and 'a 'b 'c) (:identity nil))
+(defrule option-flatten () (and (and 'a 'b) (and 'c 'd) (and 'e 'f)) (:flatten))
+(defrule option-test () number (:test (x) (= x 5)))
+(defrule option-not () number (:not (x) (= x 5)))
+
+(defrule multiopt-proc () number (:lambda (x) (1+ x)) (:lambda (x) (1+ x)))
+(defrule multiopt-test-a () number (:test (x) (= x 5)) (:lambda (x) (1+ x)))
+(defrule multiopt-test-b () number (:lambda (x) (1+ x)) (:test (x) (= x 5)))
+
 (defrule nest-or-and () (or (and 'a 'b) (and 'a 'c) (and 'd 'e)))
 (defrule nest-and-or () (and (or 'a 'b) (or 'a 'c) (or 'd 'e)))
 (defrule nest-*-and () (* (and 'a 'b)))
@@ -238,6 +252,42 @@
     (test-parseq '(parameter-repeat 3) '(a a) nil nil)
     (test-parseq '(parameter-constant b) '(a) t 'b)))
 
+(define-test option-test ()
+  (check
+    ;; (and 'a 'b 'c) (:constant 4))
+    (test-parseq 'option-constant '(a b c) t 4)
+    ;; (and 'a 'b 'c) (:lambda (x y z) (list z y x)))
+    (test-parseq 'option-lambda '(a b c) t '(c b a))
+    ;; (and 'a 'b 'c) (:lambda (&rest items) (reverse items)))
+    (test-parseq 'option-lambda-rest '(a b c) t '(c b a))
+    ;; (and (* 'a) 'b) (:destructure ((&rest a) b) `(,@a ,b)))
+    (test-parseq 'option-destructure '(a a a b) t '(a a a b))
+    ;; (and 'a 'b 'c) (:identity t))
+    (test-parseq 'option-identity-t '(a b c) t '(a b c))
+    ;; (and 'a 'b 'c) (:identity nil))
+    (test-parseq 'option-identity-n '(a b c) t nil)
+    ;; (and (and 'a 'b) (and 'c 'd) (and 'e 'f)) (:flatten))
+    (test-parseq 'option-flatten '(a b c d e f) t '(a b c d e f))
+    ;; number (:test (x) (= x 5)))
+    (test-parseq 'option-test '(4) nil nil)
+    (test-parseq 'option-test '(5) t 5)
+    (test-parseq 'option-test '(6) nil nil)
+    ;; number (:not (x) (= x 5)))
+    (test-parseq 'option-not '(4) t 4)
+    (test-parseq 'option-not '(5) nil nil)
+    (test-parseq 'option-not '(6) t 6)))
+
+(define-test multiopt-test ()
+  (check
+    ;; number (:lambda (x) (1+ x)) (:lambda (x) (1+ x)))
+    (test-parseq 'multiopt-proc '(5) t 7)
+    ;; number (:test (x) (= x 5)) (:lambda (x) (1+ x)))
+    (test-parseq 'multiopt-test-a '(4) nil nil)
+    (test-parseq 'multiopt-test-a '(5) t 6)
+    ;; number (:lambda (x) (1+ x)) (:test (x) (= x 5)))
+    (test-parseq 'multiopt-test-b '(4) t 5)
+    (test-parseq 'multiopt-test-b '(5) nil nil)))
+
 (define-test nesting-test ()
   (check
     ;; (or (and 'a 'b) (and 'a 'c) (and 'd 'e))
@@ -301,8 +351,7 @@
     (test-parseq 'nest-and-+ '(a a b) t '((a a) (b)))
     (test-parseq 'nest-and-+ '(a b b) t '((a) (b b)))
 
-    (test-parseq 'nest-list-list '(((a))) t '((a)))
-))
+    (test-parseq 'nest-list-list '(((a))) t '((a)))))
 
 (define-test loop-test ()
   (check
@@ -319,8 +368,7 @@
     (test-parseq 'loop '(for i in list repeat 5) t)
     (test-parseq 'loop '(for i in list thereis (> i 0)) t)
     (test-parseq 'loop '(for i across vec when (> i 0) collecting it into q and summing i into n else maximize i into m and return 5 end) t)
-    (test-parseq 'loop '(for i across vec unless (minusp i) count i into q) t)
-))
+    (test-parseq 'loop '(for i across vec unless (minusp i) count i into q) t)))
 
 (define-test parseq-test ()
   (check
@@ -338,5 +386,7 @@
     (string-test)
     (vector-test)
     (parameter-test)
+    (option-test)
+    (multiopt-test)
     (nesting-test)
     (loop-test)))

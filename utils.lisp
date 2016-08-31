@@ -15,6 +15,14 @@
   ;; Checks whether the given item is in the list
   (some #'(lambda (x) (funcall test item (funcall key x))) sequence))
 
+(defun flatten (x)
+  "Flattens the given tree, x, into a list."
+  (labels ((rec (x acc)
+             (cond ((null x) acc)
+                   ((atom x) (cons x acc))
+                   (t (rec (car x) (rec (cdr x) acc))))))
+    (rec x nil)))
+
 (defun l< (list length)
   "Tests efficiently whether the length of the list is smaller than the given length."
   (cond
