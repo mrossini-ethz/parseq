@@ -368,6 +368,13 @@
 
     (test-parseq 'nest-list-list '(((a))) t '((a)))))
 
+(define-test local-rules-test ()
+    (check
+      (with-local-rules
+        (defrule nonterminal-and () (and 'd 'e 'f))
+        (test-parseq 'nonterminal-and '(a b c) nil nil)
+        (test-parseq 'nonterminal-and '(d e f) t '(d e f)))))
+
 (define-test loop-test ()
   (check
     (test-parseq 'loop '(named q for a from 0 below 10 by 10) t)
@@ -404,4 +411,5 @@
     (option-test)
     (multiopt-test)
     (nesting-test)
+    (local-rules-test)
     (loop-test)))
