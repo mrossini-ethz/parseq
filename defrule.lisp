@@ -2,11 +2,10 @@
 
 (defparameter *list-parse-rule-table* (make-hash-table))
 
-(defun parseq (rule sequence &key start end junk-allowed)
-  (declare (ignore start end)) ;; FIXME
-  (let ((pos '(0)))
+(defun parseq (rule sequence &key (start 0) end junk-allowed)
+  (let ((pos (list start)))
     (multiple-value-bind (result success newpos) (parseq-internal rule sequence pos)
-      (if (and success (or junk-allowed (= (length sequence) (first newpos))))
+      (if (and success (or (and junk-allowed (or (null end) (< (first newpos) end))) (= (or end (length sequence)) (first newpos))))
           (values result t)
           (values nil nil)))))
 
@@ -367,16 +366,16 @@
   ;; Creates a lambda function that parses the given grammar rules.
   ;; It then stores the lambda function in the global list *list-parse-rule-table*,
   ;; therefore the rule functions use a namespace separate from everything
-  (with-gensyms (x pos oldpos result success)
+  (with-gensyms (sequence pos oldpos result success)
     ;; Save the lambda function in the namespace table
     `(setf (gethash ',name *list-parse-rule-table*)
            ;; The lambda function that parses according to the given grammar rules
-           (lambda (,x ,pos ,@lambda-list)
+           (lambda (,sequence ,pos ,@lambda-list)
              (declare (special ,@(loop for opt in options when (eql (first opt) :external) append (rest opt))))
              (with-special-vars-from-options ,options
                ;; Save the previous parsing position and get the parsing result
                (let ((,oldpos (treepos-copy ,pos)))
-                 (with-expansion-success ((,result ,success) ,x ,expr ,pos ,lambda-list)
+                 (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
                    ;; Return the parsing result, the success and the new position
                    (multiple-value-bind (,result ,success) ,(expand-processing-options result options)
                      (if ,success
