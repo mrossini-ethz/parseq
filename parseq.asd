@@ -14,7 +14,7 @@
   :description "Unit testing for parseq."
   :author "Marco Rossini"
   :license "GPLv2"
-  :depends-on (:esrap)
+  :depends-on (:parseq)
   :components ((:file "test/unit-test")
                (:file "test/test" :depends-on ("test/unit-test"))))
 
