@@ -48,6 +48,10 @@
 (defrule multiopt-test-a () number (:test (x) (= x 5)) (:lambda (x) (1+ x)))
 (defrule multiopt-test-b () number (:lambda (x) (1+ x)) (:test (x) (= x 5)))
 
+(defrule bind-outside () (and bind-inside bind-multi) (:let x))
+(defrule bind-inside () number (:external x) (:lambda (num) (setf x num)))
+(defrule bind-multi () (rep x 'a) (:external x))
+
 (defrule nest-or-and () (or (and 'a 'b) (and 'a 'c) (and 'd 'e)))
 (defrule nest-and-or () (and (or 'a 'b) (or 'a 'c) (or 'd 'e)))
 (defrule nest-*-and () (* (and 'a 'b)))
@@ -368,12 +372,18 @@
 
     (test-parseq 'nest-list-list '(((a))) t '((a)))))
 
+(define-test bind-test ()
+  (check
+    (test-parseq 'bind-outside '(4 a a a) nil nil)
+    (test-parseq 'bind-outside '(4 a a a a) t '(4 (a a a a)))
+    (test-parseq 'bind-outside '(4 a a a a a) nil nil)))
+
 (define-test local-rules-test ()
-    (check
-      (with-local-rules
-        (defrule nonterminal-and () (and 'd 'e 'f))
-        (test-parseq 'nonterminal-and '(a b c) nil nil)
-        (test-parseq 'nonterminal-and '(d e f) t '(d e f)))))
+  (check
+    (with-local-rules
+      (defrule nonterminal-and () (and 'd 'e 'f))
+      (test-parseq 'nonterminal-and '(a b c) nil nil)
+      (test-parseq 'nonterminal-and '(d e f) t '(d e f)))))
 
 (define-test loop-test ()
   (check
@@ -411,5 +421,6 @@
     (option-test)
     (multiopt-test)
     (nesting-test)
+    (bind-test)
     (local-rules-test)
     (loop-test)))
