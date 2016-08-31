@@ -12,18 +12,17 @@
 
 (defun parseq-internal (rule sequence pos)
   (cond
-    ;; Rule is nil
-    ((null rule) (null sequence))
     ;; Rule is a named rule (without args)
     ((symbolp rule) (let ((fun (gethash rule *list-parse-rule-table*)))
                             (if fun
                                 (funcall fun sequence pos)
-                                (error (format nil "Unknown rule `~a'." rule)))))
+                                (error "Unknown rule: ~a" rule))))
     ;; Rule is a named rule (with args)
     ((listp rule) (let ((fun (gethash (first rule) *list-parse-rule-table*)))
                           (if fun
                               (apply fun sequence pos (rest rule))
-                              (error (format nil "Unknown rule `(~a ...)'." rule)))))))
+                              (error "Unknown rule: ~a" rule))))
+    (t (error "Invalid rule: ~a" rule))))
 
 (defun quoted-symbol-p (x)
   (and (listp x) (l= x 2) (eql (first x) 'quote) (symbolp (second x))))
@@ -98,7 +97,7 @@
 
 (defun runtime-dispatch (expr arg pos)
   (cond
-    ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))
+    ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values (second arg) t (treepos-step pos)) (values nil nil nil)))
     ((characterp arg) (if (char= arg (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))
     ((stringp arg) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg))) (values nil nil nil)))
     ((vectorp arg) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg))) (values nil nil nil)))

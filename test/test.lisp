@@ -30,6 +30,7 @@
 (defrule nonterminal-vector () (vector 4))
 
 (defrule parameter-terminal (x) x)
+(defrule parameter-terminal-indirect () (parameter-terminal 'a))
 (defrule parameter-repeat (x) (rep x 'a))
 (defrule parameter-constant (x) 'a (:constant x))
 
@@ -246,10 +247,24 @@
 
 (define-test parameter-test ()
   (check
-    (test-parseq '(parameter-terminal 'a) '(a) t)
-    (test-parseq '(parameter-terminal 'a) '(b) nil)
-    (test-parseq '(parameter-repeat 3) '(a a a) t '(a a a))
+    ;; x
+    (test-parseq '(parameter-terminal 'a) '(a) t 'a)
+    (test-parseq '(parameter-terminal 'a) '(b) nil nil)
+    (test-parseq '(parameter-terminal #\a) "a" t #\a)
+    (test-parseq '(parameter-terminal #\a) "b" nil nil)
+    (test-parseq '(parameter-terminal "abc") "abc" t "abc")
+    (test-parseq '(parameter-terminal "abc") "def" nil nil)
+    (test-parseq '(parameter-terminal #(1 2 3)) #(1 2 3) t #(1 2 3) nil #'equalp)
+    (test-parseq '(parameter-terminal #(1 2 3)) #(4 5 6) nil nil)
+    (test-parseq '(parameter-terminal 5) '(5) t 5)
+    (test-parseq '(parameter-terminal 5) '(6) nil nil)
+    ;; (parameter-terminal 'a)
+    (test-parseq 'parameter-terminal-indirect '(a) t 'a)
+    ;; (rep x 'a))
     (test-parseq '(parameter-repeat 3) '(a a) nil nil)
+    (test-parseq '(parameter-repeat 3) '(a a a) t '(a a a))
+    (test-parseq '(parameter-repeat 3) '(a a a a) nil nil)
+    ;; 'a (:constant x)
     (test-parseq '(parameter-constant b) '(a) t 'b)))
 
 (define-test option-test ()
