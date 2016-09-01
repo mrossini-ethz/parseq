@@ -48,9 +48,12 @@
 (defrule multiopt-test-a () number (:test (x) (= x 5)) (:lambda (x) (1+ x)))
 (defrule multiopt-test-b () number (:lambda (x) (1+ x)) (:test (x) (= x 5)))
 
-(defrule bind-outside () (and bind-inside bind-multi) (:let x))
-(defrule bind-inside () number (:external x) (:lambda (num) (setf x num)))
-(defrule bind-multi () (rep x 'a) (:external x))
+(defrule bind-single () (and bind-single-number bind-single-repeat) (:let x))
+(defrule bind-single-number () number (:external x) (:lambda (num) (setf x num)))
+(defrule bind-single-repeat () (rep x 'a) (:external x))
+(defrule bind-nest-number () number (:external x) (:lambda (num) (setf x num)))
+(defrule bind-nest-repeat () (rep x bind-single) (:external x) )
+(defrule bind-nest () (and bind-nest-number bind-nest-repeat) (:let x))
 
 (defrule nest-or-and () (or (and 'a 'b) (and 'a 'c) (and 'd 'e)))
 (defrule nest-and-or () (and (or 'a 'b) (or 'a 'c) (or 'd 'e)))
@@ -374,9 +377,14 @@
 
 (define-test bind-test ()
   (check
-    (test-parseq 'bind-outside '(4 a a a) nil nil)
-    (test-parseq 'bind-outside '(4 a a a a) t '(4 (a a a a)))
-    (test-parseq 'bind-outside '(4 a a a a a) nil nil)))
+    (test-parseq 'bind-single '(4 a a a) nil nil)
+    (test-parseq 'bind-single '(4 a a a a) t '(4 (a a a a)))
+    (test-parseq 'bind-single '(4 a a a a a) nil nil)
+    (test-parseq 'bind-nest '(3 3 a a a 2 a a 7 a a a a a a a 1 a) nil nil)
+    (test-parseq 'bind-nest '(4 3 a a a 2 a a 7 a a a a a a a 1 a) t '(4 ((3 (a a a)) (2 (a a)) (7 (a a a a a a a)) (1 (a)))))
+    (test-parseq 'bind-nest '(5 3 a a a 2 a a 7 a a a a a a a 1 a) nil nil)
+    (test-parseq 'bind-nest '(4 3 a a a 2 a a 6 a a a a a a a 1 a) nil nil)
+    (test-parseq 'bind-nest '(4 3 a a a 2 a a 8 a a a a a a a 1 a) nil nil)))
 
 (define-test local-rules-test ()
   (check
