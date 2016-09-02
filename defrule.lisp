@@ -147,18 +147,8 @@
        ;; Is a call to another rule (without args)
        (t (try-and-advance `(parseq-internal ',rule ,expr ,pos) pos))))))
 
-(defmacro cond-or (&rest clauses)
-  ;; Helper macro for expand-or. Works like cond, but operates on the two values returned by each clause.
-  (if clauses
-      (with-gensyms (result success)
-        `(multiple-value-bind (,result ,success) ,(first clauses)
-           (if ,success
-               (values ,result t)
-               (cond-or ,@(rest clauses)))))
-      `(values nil nil)))
-
 (defun expand-or (expr rule pos args)
-  `(cond-or ,@(loop for r in rule collect (expand-rule expr r pos args))))
+  `(or2 ,@(loop for r in rule collect (expand-rule expr r pos args))))
 
 (defun expand-and (expr rule pos args)
   ;; Create gensyms for the list of results, the individual result and the block to return from when short-circuiting

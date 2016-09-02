@@ -60,8 +60,12 @@
   "Retrieves the last item from the given list."
   (car (last list)))
 
+;; Symbol functions
+
 (defun symbol= (a b)
   (and (symbolp a) (symbolp b) (string= (symbol-name a) (symbol-name b))))
+
+;; Control flow macros
 
 (defmacro case-test ((keyform &key (test 'eql)) &body clauses)
   (with-gensyms (key)
@@ -70,6 +74,8 @@
                       (if (eql (first clause) t)
                           clause
                           `((,test ,key ,(if (symbolp (first clause)) `(quote ,(first clause)) (first clause))) ,@(rest clause))))))))
+
+;; Generic sequence functions
 
 (defun sequencep (object)
   (or (listp object) (vectorp object)))
@@ -88,3 +94,14 @@
 
 (defun unsigned-byte-p (object)
   (and (integerp object) (>= object 0) (<= object 255)))
+
+;; Logic functions
+
+(defmacro or2 (&rest forms)
+  ;; Works like or, but operates on the second value returned by each form.
+  (when forms
+      (with-gensyms (result success)
+        `(multiple-value-bind (,result ,success) ,(first forms)
+           (if ,success
+               (values ,result ,success)
+               (or2 ,@(rest forms)))))))
