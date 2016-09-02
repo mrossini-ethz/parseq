@@ -105,3 +105,27 @@
            (if ,success
                (values ,result ,success)
                (or2 ,@(rest forms)))))))
+
+(defmacro or2-exclusive ((exclusion-list) &rest forms)
+  ;; Like or2, but checks whether form is excluded in exclusion list before evaluating form.
+  ;; Also returns the  index of the form that succeeded
+  (with-gensyms (result success blockname)
+    `(block ,blockname
+       ,@(loop for form in forms for i upfrom 0 collect
+            ;; Check for exclusion
+              `(unless (nth ,i ,exclusion-list)
+                 ;; Form is not excluded, try it
+                 (multiple-value-bind (,result ,success) ,(nth i forms)
+                   (when ,success
+                     ;; Return the result, the success, plus the index which succeeded
+                     (return-from ,blockname (values ,result ,success ,i)))))))))
+
+;; Random function (for testing)
+
+(defun shuffle (list)
+  "Creates a new list in which the items of the given list are shuffled"
+  ;; Algorithm by Donald Knuth
+  (let ((n (list-length list)) (result (copy-list list)))
+    (loop for i below (- n 1) do
+         (rotatef (nth i result) (nth (+ i (random (- n i))) result))
+       finally (return result))))

@@ -72,12 +72,19 @@ The following nonterminals are available:
 ### Rules
 Any rule defined with `defrule` is a nonterminal and can be used through its name.
 
-### Sequence
+### Sequence (ordered)
 ```lisp
 (and subexpression ...)
 ```
-The expression succeeds if all subexpressions succeed in order.
+The expression succeeds for a sequence if all subexpressions succeed in order.
 It produces a list of the subexpression results.
+
+### Sequence (unordered)
+```lisp
+(and~ subexpression ...)
+```
+The expression succeeds for a sequence if all subexpressions succeed, in any order.
+It produces a list of the subexpression results (in the order in which they are listed in the expression).
 
 ### Ordered choice
 ```lisp
@@ -287,11 +294,9 @@ You can use local namespaces for rule names:
 ## Upcoming features
 These features _may_ be implemented in the future:
 
- * nonterminal for unordered sequences
-   * `(and~ ...)` : all subexpressions required
-   * `(and+ ...)` : some subexpressions required
-   * `(and* ...)` : any number of subexpressions
-   * variants of the above that allow for duplicates
+ * nonterminals similar to `(and~ ...)` (unordered sequences)
+   * all subexpressions required with duplicates allowed
+   * some subexpressions required
  * short forms for combined nonterminals, e.g.
    * `(? (and ...))`
    * `(? (or ...))`
