@@ -361,6 +361,8 @@
                         (:not `(when ,(expand-destructure (second opt) tmp (cddr opt)) (return-from ,blockname)))))
                (values ,tmp t)))))))
 
+;; Special variables (rule bindings) -----------------------------------------
+
 (defmacro with-special-vars ((&rest vars) &body body)
   `(let (,@vars)
      (declare (special ,@(loop for v in vars collect (if (listp v) (first v) v))))
@@ -374,6 +376,42 @@
         `(with-special-vars (,@bindings) ,@body)
         `(progn ,@body))))
 
+;; Trace functions -----------------------------------------------------------
+
+(defparameter *trace-depth* 0)
+(defparameter *trace-recursive* nil)
+(defparameter *trace-rule* (make-hash-table :test 'equal))
+
+(defun is-traced (trace-option)
+  (or (plusp trace-option) *trace-recursive*))
+
+(defmacro with-tracing ((name pos) &body body)
+  (with-gensyms (trace-opt result success newpos)
+    ;; Lookup tracing options in the hash table.
+    ;; This actually closes over the symbol `name' so the parsing function remembers which name it was defined with.
+    `(let* ((,trace-opt (gethash (symbol-name ',name) *trace-rule*))
+            (*trace-recursive* (if (= ,trace-opt 2) t *trace-recursive*))
+            (*trace-depth* (if (is-traced ,trace-opt) (1+ *trace-depth*) *trace-depth*)))
+       ;; Print trace start
+       (when (is-traced ,trace-opt)
+         (format t "~v,0T~d: ~a ~{~d~^:~}?~%" (1- *trace-depth*) *trace-depth* ',name ,pos))
+       ;; Run the code and intercept the return values
+       (multiple-value-bind (,result ,success ,newpos) (progn ,@body)
+         ;; Print the end of the trace
+         (when (is-traced ,trace-opt)
+           ;; Different format depending on success
+           (if ,success
+               (format t "~v,0T~d: ~a ~{~d~^:~}-~{~d~^:~} -> ~a~%" (1- *trace-depth*) *trace-depth* ',name ,pos ,newpos ,result)
+               (format t "~v,0T~d: ~a -|~%" (1- *trace-depth*) *trace-depth* ',name)))
+         ;; Return interceptet return values
+         (values ,result ,success ,newpos)))))
+
+(defun trace-rule (name &key recursive)
+  (setf (gethash (symbol-name name) *trace-rule*) (if recursive 2 1)))
+
+(defun untrace-rule (name)
+  (setf (gethash (symbol-name name) *trace-rule*) 0))
+
 ;; defrule macro --------------------------------------------------------------
 
 (defmacro defrule (name lambda-list expr &body options)
@@ -382,26 +420,31 @@
   ;; therefore the rule functions use a namespace separate from everything
   (with-gensyms (sequence pos oldpos result success)
     ;; Save the lambda function in the namespace table
-    `(setf (gethash ',name *list-parse-rule-table*)
-           ;; The lambda function that parses according to the given grammar rules
-           (lambda (,sequence ,pos ,@lambda-list)
-             (declare (special ,@(loop for opt in options when (eql (first opt) :external) append (rest opt))))
-             (with-special-vars-from-options ,options
-               ;; Save the previous parsing position and get the parsing result
-               (let ((,oldpos (treepos-copy ,pos)))
-                 (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
-                   ;; Return the parsing result, the success and the new position
-                   (multiple-value-bind (,result ,success) ,(expand-processing-options result options)
-                     (if ,success
-                         (values ,result t ,pos)
-                         (values nil nil ,oldpos)))
-                   ;; Return nil as parsing result, failure and the old position
-                   (values nil nil ,oldpos))))))))
+    `(progn
+       (setf (gethash (symbol-name ',name) *trace-rule*) 0)
+       (setf (gethash ',name *list-parse-rule-table*)
+             ;; The lambda function that parses according to the given grammar rules
+             (lambda (,sequence ,pos ,@lambda-list)
+               (declare (special ,@(loop for opt in options when (eql (first opt) :external) append (rest opt))))
+               (with-special-vars-from-options ,options
+                 ;; Save the previous parsing position and get the parsing result
+                 (let ((,oldpos (treepos-copy ,pos)))
+                   ;; Print tracing information
+                   (with-tracing (,name ,oldpos)
+                     (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
+                       ;; Return the parsing result, the success and the new position
+                       (multiple-value-bind (,result ,success) ,(expand-processing-options result options)
+                         (if ,success
+                             (values ,result t ,pos)
+                             (values nil nil ,oldpos)))
+                       ;; Return nil as parsing result, failure and the old position
+                       (values nil nil ,oldpos))))))))))
 
 ;; Namespace macros -----------------------------------------------------------
 
 (defmacro with-local-rules (&body body)
   ;; Shadow the global rule table with a new hash table
-  `(let ((*list-parse-rule-table* (make-hash-table)))
+  `(let ((*list-parse-rule-table* (make-hash-table))
+         (*trace-rule* (make-hash-table)))
      ;; Execute the body
      ,@body))

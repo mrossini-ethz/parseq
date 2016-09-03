@@ -282,6 +282,18 @@ A set of rules to parse this would be:
 ```
 If a subexpression binds the same variable with another `:let`, the previous binding is shadowed until the subexpression is completed.
 
+## Rule tracing
+Rules can be traced by calling
+```lisp
+(trace-rule 'rule-name)
+```
+which will print the information to standard output.
+If the keyword argument `:recursive` is set to `T`, all rules called within the given rule will be traced as well.
+Tracing can be turned off by calling
+```lisp
+(untrace-rule 'rule-name)
+```
+
 ## Namespaces
 You can use local namespaces for rule names:
 ```lisp
@@ -300,7 +312,6 @@ These features _may_ be implemented in the future:
  * short forms for combined nonterminals, e.g.
    * `(? (and ...))`
    * `(? (or ...))`
- * rule tracing
  * support for streams
  * custom terminals
  * custom non-terminals
