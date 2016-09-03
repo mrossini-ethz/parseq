@@ -64,6 +64,8 @@
 (defrule nest-and-+ () (and (+ 'a) (+ 'b)))
 (defrule nest-list-list () (list (list 'a)))
 
+(defrule recursion () (or (and 'a recursion) 'a))
+
 (defrule loop-name () (and 'named symbol))
 (defrule loop-iteration-with () (and 'with symbol '= form (* (and 'and symbol '= form))))
 (defrule loop-iteration-up () (and (? (and (or 'from 'upfrom) form)) (? (and (or 'upto 'to 'below) form))))
@@ -440,6 +442,16 @@
       (test-parseq 'nonterminal-and '(a b c) nil nil)
       (test-parseq 'nonterminal-and '(d e f) t '(d e f)))))
 
+(define-test recursion-test ()
+  (check
+    (test-parseq 'recursion '() nil nil)
+    (test-parseq 'recursion '(a) t 'a)
+    (test-parseq 'recursion '(a a) t '(a a))
+    (test-parseq 'recursion '(a a a) t '(a (a a)))
+    (test-parseq 'recursion '(a a a a) t '(a (a (a a))))
+    (test-parseq 'recursion '(a a a a a) t '(a (a (a (a a)))))
+))
+
 (define-test loop-test ()
   (check
     (test-parseq 'loop '(named q for a from 0 below 10 by 10) t)
@@ -479,4 +491,5 @@
     (nesting-test)
     (bind-test)
     (local-rules-test)
+    (recursion-test)
     (loop-test)))
