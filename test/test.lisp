@@ -65,6 +65,9 @@
 (defrule nest-list-list () (list (list 'a)))
 
 (defrule recursion () (or (and 'a recursion) 'a))
+(defrule left-recursion () (or (and 'a left-recursion 'b) (and left-recursion 'a) 'a))
+(defrule left-recursion-indirect () (and (? 'b) left-recursion-indirect-2))
+(defrule left-recursion-indirect-2 () (and (? 'b) left-recursion-indirect))
 
 (defrule loop-name () (and 'named symbol))
 (defrule loop-iteration-with () (and 'with symbol '= form (* (and 'and symbol '= form))))
@@ -449,8 +452,12 @@
     (test-parseq 'recursion '(a a) t '(a a))
     (test-parseq 'recursion '(a a a) t '(a (a a)))
     (test-parseq 'recursion '(a a a a) t '(a (a (a a))))
-    (test-parseq 'recursion '(a a a a a) t '(a (a (a (a a)))))
-))
+    (test-parseq 'recursion '(a a a a a) t '(a (a (a (a a)))))))
+
+(define-test left-recursion-test ()
+  (check
+    (condition= (parseq 'left-recursion-indirect '(a a a)) simple-error)
+    (condition= (parseq 'left-recursion '(a a a)) simple-error)))
 
 (define-test loop-test ()
   (check
@@ -492,4 +499,5 @@
     (bind-test)
     (local-rules-test)
     (recursion-test)
+    (left-recursion-test)
     (loop-test)))

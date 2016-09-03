@@ -412,33 +412,52 @@
 (defun untrace-rule (name)
   (setf (gethash (symbol-name name) *trace-rule*) 0))
 
+;; Left recursion -------------------------------------------------------------
+
+(defmacro with-left-recursion-protection ((pos stack) &body body)
+  (with-gensyms (result success newpos)
+    `(progn
+       (when (and ,stack (equal ,pos (first ,stack)))
+         (error "Left recursion detected!"))
+       ;; Save the position in which this rule was called
+       (push (treepos-copy ,pos) ,stack)
+       ;; Execute the body
+       (multiple-value-bind (,result ,success ,newpos) (progn ,@body)
+         (pop ,stack)
+         (values ,result ,success ,newpos)))))
+
 ;; defrule macro --------------------------------------------------------------
 
 (defmacro defrule (name lambda-list expr &body options)
   ;; Creates a lambda function that parses the given grammar rules.
   ;; It then stores the lambda function in the global list *list-parse-rule-table*,
   ;; therefore the rule functions use a namespace separate from everything
-  (with-gensyms (sequence pos oldpos result success)
-    ;; Save the lambda function in the namespace table
-    `(progn
+  (with-gensyms (sequence pos oldpos result success last-call-pos)
+    ;; Bind a variable for the following lambda expression to close over
+    `(let (,last-call-pos)
+       ;; Save the name in the trace rule table
        (setf (gethash (symbol-name ',name) *trace-rule*) 0)
+       ;; Save the lambda function in the namespace table
        (setf (gethash ',name *list-parse-rule-table*)
              ;; The lambda function that parses according to the given grammar rules
              (lambda (,sequence ,pos ,@lambda-list)
                (declare (special ,@(loop for opt in options when (eql (first opt) :external) append (rest opt))))
-               (with-special-vars-from-options ,options
-                 ;; Save the previous parsing position and get the parsing result
-                 (let ((,oldpos (treepos-copy ,pos)))
-                   ;; Print tracing information
-                   (with-tracing (,name ,oldpos)
-                     (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
-                       ;; Return the parsing result, the success and the new position
-                       (multiple-value-bind (,result ,success) ,(expand-processing-options result options)
-                         (if ,success
-                             (values ,result t ,pos)
-                             (values nil nil ,oldpos)))
-                       ;; Return nil as parsing result, failure and the old position
-                       (values nil nil ,oldpos))))))))))
+               ;; Check for left recursion
+               (with-left-recursion-protection (,pos ,last-call-pos)
+                 ;; Bind special variables from the (:let ...) option
+                 (with-special-vars-from-options ,options
+                   ;; Save the previous parsing position and get the parsing result
+                   (let ((,oldpos (treepos-copy ,pos)))
+                     ;; Print tracing information
+                     (with-tracing (,name ,oldpos)
+                       (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
+                         ;; Return the parsing result, the success and the new position
+                         (multiple-value-bind (,result ,success) ,(expand-processing-options result options)
+                           (if ,success
+                               (values ,result t ,pos)
+                               (values nil nil ,oldpos)))
+                         ;; Return nil as parsing result, failure and the old position
+                         (values nil nil ,oldpos)))))))))))
 
 ;; Namespace macros -----------------------------------------------------------
 
