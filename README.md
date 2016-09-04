@@ -60,8 +60,8 @@ Literal values can be specified to match specific items or subsequences in the s
 
  * `'foo` matches the symbol `foo`
  * `#\f` matches the character 'f'
- * `"foo"` matches the sequence "foo" in a string
- * `#(1 2 3)` matches the the sequence `#(1 2 3)` in a vector
+ * `"foo"` matches the subsequence "foo" in a string or the item `"foo"` in a list or vector
+ * `#(1 2 3)` matches the the subsequence `#(1 2 3)` in a vector or the item `#(1 2 3)` in a list
  * `5` matches the number 5
 
 More terminals may be available in later versions of parseq.

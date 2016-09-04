@@ -39,11 +39,11 @@
         (> (length tree) (first pos)))))
 
 (defun treeitem (pos tree)
-  (if (and (sequencep tree) (consp pos))
-      (if (l> pos 1)
-          (treeitem (rest pos) (elt tree (first pos)))
-          (elt tree (first pos)))
-      tree))
+  (when (and (sequencep tree) (listp pos))
+    (cond
+      ((l> pos 1) (treeitem (rest pos) (elt tree (first pos))))
+      ((null pos) tree)
+      (t (elt tree (first pos))))))
 
 (defun treepos-length (pos tree)
   (if (sequencep tree)
@@ -118,9 +118,19 @@
     ;; Is a character
     ((characterp rule) (test-and-advance expr pos `(char= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr)))
     ;; Is a string
-    ((stringp rule) (test-and-advance expr pos `(subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos)) rule (length rule)))
+    ((stringp rule) (test-and-advance expr pos `(if (stringp (treeitem (butlast ,pos) ,expr))
+                                                    ;; We are parsing a string, so match substring
+                                                    (subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos))
+                                                    ;; We are not parsing a string, match the whole item
+                                                    (string= (treeitem ,pos ,expr) ,rule))
+                                      rule `(if (stringp (treeitem (butlast ,pos) ,expr)) ,(length rule) 1)))
     ;; Is a vector
-    ((vectorp rule) (test-and-advance expr pos `(subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos)) rule (length rule)))
+    ((vectorp rule) (test-and-advance expr pos `(if (vectorp (treeitem (butlast ,pos) ,expr))
+                                                    ;; We are parsing a vector, match the subsequence
+                                                    (subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos))
+                                                    ;; We are not parsing a vector, match the whole item
+                                                    (equalp (treeitem ,pos ,expr) ,rule))
+                                      rule `(if (vectorp (treeitem (butlast ,pos) ,expr)) ,(length rule) 1)))
     ;; Is a number
     ((numberp rule) (test-and-advance expr pos `(= ,rule (treeitem ,pos ,expr)) rule))
     ;; Is a symbol
