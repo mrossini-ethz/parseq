@@ -341,7 +341,7 @@
     (let ((procs (loop for opt in options
                     ;; Ensure the options are lists of at least one element
                     when (or (not (listp opt)) (l< opt 1)) do (error "Invalid processing option!")
-                    when (have (first opt) '(:constant :lambda :destructure :function :identity :flatten :test :not))
+                    when (have (first opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not))
                     collect opt)))
       (if (null procs)
           `(values ,result t)
@@ -356,7 +356,9 @@
                         (:destructure `(setf ,tmp ,(expand-destructure (second opt) tmp (cddr opt))))
                         (:function `(setf ,tmp (apply ,(second opt) (mklist ,tmp))))
                         (:identity `(unless ,(second opt) (setf ,tmp nil)))
-                        (:flatten `(setf ,tmp (if (listp ,result) (flatten ,result) ,tmp)))
+                        (:flatten `(setf ,tmp (if (listp ,result) (flatten ,result) (list ,tmp))))
+                        (:string `(setf ,tmp (apply #'cat (if (listp ,result) (flatten ,result) (list ,tmp)))))
+                        (:vector `(setf ,tmp (apply #'vector (if (listp ,result) (flatten ,result) (list ,tmp)))))
                         (:test `(unless ,(expand-destructure (second opt) tmp (cddr opt)) (return-from ,blockname)))
                         (:not `(when ,(expand-destructure (second opt) tmp (cddr opt)) (return-from ,blockname)))))
                (values ,tmp t)))))))

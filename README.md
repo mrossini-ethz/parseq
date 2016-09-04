@@ -226,6 +226,19 @@ Returns the parsing result if the argument is not `NIL` and `NIL` otherwise.
 ```
 Flattens the parsing result, i.e. `(a (b c (d) e) (f g))` becomes `(a b c d e f g)`.
 
+#### String
+```lisp
+(:string)
+```
+Flattens the parsing result and concatenates the list items to into a string, i.e. `(#\a (#\b #\c (#\d) #\e) (#\f #\g))` becomes `"abcdefg"`.
+The list items that can be concatentated are strings, characters and symbols.
+
+#### Vector
+```lisp
+(:vector)
+```
+Flattens the parsing result and converts the resulting list into a vector, i.e. `(a (b c (d) e) (f g))` becomes `#(a b c d e f g)`.
+
 ### Parse result testing
 These options do not affect the parse result, but can make the rule fail depending on their input.
 If a rule fails because of such an option, the processing of subsequent options is skipped.

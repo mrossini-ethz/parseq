@@ -129,3 +129,12 @@
     (loop for i below (- n 1) do
          (rotatef (nth i result) (nth (+ i (random (- n i))) result))
        finally (return result))))
+
+;; String functions
+
+(defun cat (&rest items)
+  (apply #'concatenate 'string (loop for i in items collect (cond
+                                                              ((stringp i) i)
+                                                              ((characterp i) (string i))
+                                                              ((symbolp i) (symbol-name i))
+                                                              (t (error "Cannot convert ~a into string!" (type-of i)))))))
