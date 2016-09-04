@@ -415,16 +415,15 @@
 ;; Left recursion -------------------------------------------------------------
 
 (defmacro with-left-recursion-protection ((pos stack) &body body)
-  (with-gensyms (result success newpos)
-    `(progn
-       (when (and ,stack (equal ,pos (first ,stack)))
-         (error "Left recursion detected!"))
-       ;; Save the position in which this rule was called
-       (push (treepos-copy ,pos) ,stack)
-       ;; Execute the body
-       (multiple-value-bind (,result ,success ,newpos) (progn ,@body)
-         (pop ,stack)
-         (values ,result ,success ,newpos)))))
+  `(progn
+     (when (and ,stack (equal ,pos (first ,stack)))
+       (error "Left recursion detected!"))
+     ;; Save the position in which this rule was called
+     (push (treepos-copy ,pos) ,stack)
+     ;; Execute the body.
+     (unwind-protect (progn ,@body)
+       ;; Make sure the position is popped from the stack /always/.
+       (pop ,stack))))
 
 ;; defrule macro --------------------------------------------------------------
 
