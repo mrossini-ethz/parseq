@@ -44,22 +44,22 @@
    other test functions or use 'check' to run individual test
    cases."
   `(defun ,name ,parameters
-     (when (zerop (list-length *test-name*))
+     (when (null *test-name*)
        (setf *test-failures* 0))
-     (let ((*test-name* (append *test-name* (list ',name))) (test-failures-save *test-failures*))
-       (format t "~V<~>Testing ~{~a~^:~} ...~%" (- (list-length *test-name*) 1) *test-name*)
+     (let ((level (list-length *test-name*)) (*test-name* (append *test-name* (list ',name))) (test-failures-save *test-failures*))
+       (format t "~V,0TTesting ~{~a~^:~} ...~%" level *test-name*)
        ,@body
        (if (> *test-failures* test-failures-save)
            (progn
-             (format t "~V<~>Total number of tests failed in ~{~a~^:~}: ~a~%" (- (list-length *test-name*) 1) *test-name* (- *test-failures* test-failures-save))
-             (decf *test-failures*))
+             (format t "~V,0TTotal number of tests failed in ~{~a~^:~}: ~a~%" level *test-name* (- *test-failures* test-failures-save))
+             (plusp level))
            t))))
 
 (defun report-result (result form expanded-form)
   "Report the results of a single test case. Called by 'check'."
   (when (not result)
     (incf *test-failures*)
-    (format t "~V<~> ~:[Failed~;Passed~]: ~s~@[ => ~*~s~]~%" (- (list-length *test-name*) 1) result form (not (equal form expanded-form)) expanded-form))
+    (format t "~V,0T ~:[Failed~;Passed~]: ~s~@[ => ~*~s~]~%" (- (list-length *test-name*) 1) result form (not (equal form expanded-form)) expanded-form))
   result)
 
 (defmacro combine-results (&body forms)
