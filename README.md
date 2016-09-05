@@ -14,6 +14,21 @@ Any resemblance to [esrap-liquid](https://github.com/mabragor/esrap-liquid) is m
 
 The package is still under development which means that some features are not yet implemented, that there may be a lot of bugs and that the interface and behaviour may change in the future. See the warnings below.
 
+### Features
+Parseq provides the follwing features:
+
+ * parses strings, binary data, vectors and lists
+ * allows for sequences within sequences (e.g. trees, strings within lists, ...)
+ * simple interface, very similar to [Esrap](https://nikodemus.github.io/esrap/)
+ * provides many specific and non-specific terminals
+ * includes a large set of nonterminals
+ * result transformation defined in parse rules
+ * can be made context aware:
+   * run parse result through lisp code for verification
+   * share data between parse rules
+ * parametrize parsing rules
+ * uses separate namespace(s) for parse rules
+
 ## Basic usage
 
 First, grammar rules should be defined:
