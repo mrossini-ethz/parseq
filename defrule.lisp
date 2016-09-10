@@ -1,6 +1,6 @@
 (in-package :parseq)
 
-(defparameter *list-parse-rule-table* (make-hash-table))
+(defparameter *rule-table* (make-hash-table))
 
 (defun parseq (rule sequence &key (start 0) end junk-allowed)
   (let ((pos (list start)))
@@ -12,12 +12,12 @@
 (defun parseq-internal (rule sequence pos)
   (cond
     ;; Rule is a named rule (without args)
-    ((symbolp rule) (let ((fun (gethash rule *list-parse-rule-table*)))
+    ((symbolp rule) (let ((fun (gethash rule *rule-table*)))
                             (if fun
                                 (funcall fun sequence pos)
                                 (error "Unknown rule: ~a" rule))))
     ;; Rule is a named rule (with args)
-    ((listp rule) (let ((fun (gethash (first rule) *list-parse-rule-table*)))
+    ((listp rule) (let ((fun (gethash (first rule) *rule-table*)))
                           (if fun
                               (apply fun sequence pos (rest rule))
                               (error "Unknown rule: ~a" rule))))
@@ -433,7 +433,7 @@
 
 (defmacro defrule (name lambda-list expr &body options)
   ;; Creates a lambda expression that parses the given grammar rules.
-  ;; It then stores the lambda function in the global list *list-parse-rule-table*,
+  ;; It then stores the lambda function in the global list *rule-table*,
   ;; therefore the rule functions use a namespace separate from everything
   (with-gensyms (sequence pos oldpos result success last-call-pos)
     ;; Split options into specials, externals and processing options
@@ -449,7 +449,7 @@
          ;; Save the name in the trace rule table
          (setf (gethash (symbol-name ',name) *trace-rule*) 0)
          ;; Save the lambda function in the namespace table
-         (setf (gethash ',name *list-parse-rule-table*)
+         (setf (gethash ',name *rule-table*)
                ;; Lambda expression that parses according to the given grammar rule
                (lambda (,sequence ,pos ,@lambda-list)
                  ;; Declare special variables specified in the (:external ...) option
@@ -479,7 +479,7 @@
 
 (defmacro with-local-rules (&body body)
   ;; Shadow the global rule table with a new hash table
-  `(let ((*list-parse-rule-table* (make-hash-table))
+  `(let ((*rule-table* (make-hash-table))
          (*trace-rule* (make-hash-table)))
      ;; Execute the body
      ,@body))
