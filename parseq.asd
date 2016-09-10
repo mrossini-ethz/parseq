@@ -1,5 +1,3 @@
-(in-package :asdf-user)
-
 (defsystem "parseq"
   :description "A parser for sequences such as strings, lists, vectors as well as trees."
   :version "0.1"
