@@ -1,30 +1,35 @@
 (in-package :parseq)
 
+;; Hash table that maps the rule names (symbols) to the functions
+;; that parse the corresponding rule. Being a special variable,
+;; it can be shadowed. This is used in the macro with-local-rules.
 (defparameter *rule-table* (make-hash-table))
 
 (defun parseq (rule sequence &key (start 0) end junk-allowed)
+  ;; Parses sequence according to the given rule. A subsequence
+  ;; can be parsed by passing the start and/or end arguments.
+  ;; The parse does fails if the end of the sequence is not reached
+  ;; unless junk-allowed is given.
   (let ((pos (list start)))
+    ;; Attempt the parse
     (multiple-value-bind (result success newpos) (parseq-internal rule sequence pos)
+      ;; Check for success and sequence bounds and return success or failure
       (if (and success (or (and junk-allowed (or (null end) (< (first newpos) end))) (= (or end (length sequence)) (first newpos))))
           (values result t)
           (values nil nil)))))
 
 (defun parseq-internal (rule sequence pos)
+  ;; Function that looks up a named rule and calls it when found.
+  ;; Is called by `parseq' and the parse rule functions.
   (cond
-    ;; Rule is a named rule (without args)
-    ((symbolp rule) (let ((fun (gethash rule *rule-table*)))
-                            (if fun
-                                (funcall fun sequence pos)
-                                (error "Unknown rule: ~a" rule))))
-    ;; Rule is a named rule (with args)
-    ((listp rule) (let ((fun (gethash (first rule) *rule-table*)))
-                          (if fun
-                              (apply fun sequence pos (rest rule))
-                              (error "Unknown rule: ~a" rule))))
+    ;; Rule is a named rule (with or without args)
+    ((or (symbolp rule) (and (listp rule) (symbolp (first rule))))
+     ;; Get the function from the rule table
+     (let ((fun (gethash (if (listp rule) (first rule) rule) *rule-table*)))
+       (if fun
+           (apply fun sequence pos (if (listp rule) (rest rule)))
+           (error "Unknown rule: ~a" rule))))
     (t (error "Invalid rule: ~a" rule))))
-
-(defun quoted-symbol-p (x)
-  (and (listp x) (l= x 2) (eql (first x) 'quote) (symbolp (second x))))
 
 ;; Tree position functions ---------------------------------------------------
 
@@ -63,6 +68,9 @@
 ;; Expansion helper macros ---------------------------------------------------
 
 (defmacro test-and-advance (expr pos test result &optional (inc 1))
+  ;; Executes the given test at the given position in the sequence and if
+  ;; it succeeds increments the position and returns the sequence item that
+  ;; matched.
   `(with-gensyms (tmp)
      `(when (treepos-valid ,,pos ,,expr)
         (when ,,test
@@ -70,31 +78,40 @@
             (setf ,,pos (treepos-step ,,pos ,,inc))
             (values ,tmp t))))))
 
-(defmacro try-and-advance (test pos)
+(defmacro try-and-advance (func pos)
+  ;; Calls the given function and when successful advances the position
+  ;; in the sequence. Success is determined by the second return value
+  ;; of func and the amount of advancement by the third return value.
   `(with-gensyms (result success newpos)
-     `(multiple-value-bind (,result ,success ,newpos) ,,test
-        (if ,success
-            (progn
-              (setf ,,pos (treepos-copy ,newpos))
-              (values ,result t))
-            (values nil nil)))))
+     `(multiple-value-bind (,result ,success ,newpos) ,,func
+        (when ,success
+          (setf ,,pos (treepos-copy ,newpos))
+          (values ,result t)))))
 
 ;; Expansion macros --------------------------------------------------
 
 (defmacro with-expansion (((result-var success-var) expr rule pos args) &body body)
+  ;; Expands the given rule and binds the return values (result and success) to the
+  ;; given symbols;
   `(multiple-value-bind (,result-var ,success-var) ,(expand-rule expr rule pos args)
      ,@body))
 
 (defmacro with-expansion-success (((result-var success-var) expr rule pos args) then else)
+  ;; Expands the given rule, binds the return values (result and success) to the given
+  ;; symbols and evaluates `then' when successful and `else' upon failure.
   `(with-expansion ((,result-var ,success-var) ,expr ,rule ,pos ,args)
      (if ,success-var ,then ,else)))
 
 (defmacro with-expansion-failure (((result-var success-var) expr rule pos args) then else)
+  ;; Same as with-expansio-success but with `then' and `else' reversed.
   `(with-expansion-success ((,result-var ,success-var) ,expr ,rule ,pos ,args) ,else ,then))
 
 ;; Runtime dispatch ----------------------------------------------------------
 
 (defun runtime-dispatch (expr arg pos)
+  ;; Function that parses terminals at runtime. This is used
+  ;; when the type of terminal is unknown at compile time
+  ;; (such as for rule arguments).
   (cond
     ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values (second arg) t (treepos-step pos)) (values nil nil nil)))
     ((characterp arg) (if (char= arg (treeitem pos expr)) (values arg t (treepos-step pos)) (values nil nil nil)))
@@ -112,6 +129,7 @@
 ;; They return two values: The portion of the `expr' that was parsed, and a success value
 
 (defun expand-atom (expr rule pos args)
+  ;; Generates code that parses a lisp atom.
   (cond
     ;; Is a quoted symbol
     ((quoted-symbol-p rule) (test-and-advance expr pos `(symbol= (treeitem ,pos ,expr) ,rule) `(treeitem ,pos ,expr)))
@@ -158,9 +176,11 @@
        (t (try-and-advance `(parseq-internal ',rule ,expr ,pos) pos))))))
 
 (defun expand-or (expr rule pos args)
+  ;; Generates code that parses an expression using (or ...)
   `(or2 ,@(loop for r in rule collect (expand-rule expr r pos args))))
 
 (defun expand-and~ (expr rule pos args)
+  ;; Generates code that parses an expression using (and~ ...)
   (with-gensyms (results checklist result success index)
     ;; Make a check list that stores nil for rules that have not yet been applied and t for those that have
     ;; Also make a list of results. We need both lists, because the result of a rule may be nil, even if it succeeds.
@@ -183,7 +203,7 @@
          (values ,results t)))))
 
 (defun expand-and (expr rule pos args)
-  ;; Create gensyms for the list of results, the individual result and the block to return from when short-circuiting
+  ;; Generates code that parses an expression using (and ...)
   (with-gensyms (list result block oldpos success)
     ;; Block to return from when short-circuiting
     `(block ,block
@@ -205,6 +225,7 @@
          (values ,list t)))))
 
 (defun expand-not (expr rule pos args)
+  ;; Generates cod that parses an expression using (not ...)
   (with-gensyms (oldpos result success)
     ;; Save the current position
     `(let ((,oldpos (treepos-copy ,pos)))
@@ -226,12 +247,14 @@
            (values nil nil))))))
 
 (defun expand-* (expr rule pos args)
+  ;; Generates cod that parses an expression using (* ...)
    (with-gensyms (ret)
      `(values
        (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret))
        t)))
 
 (defun expand-+ (expr rule pos args)
+  ;; Generates cod that parses an expression using (+ ...)
   (with-gensyms (result success ret)
     `(with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
        (values
@@ -240,6 +263,7 @@
        (values nil nil))))
 
 (defun expand-rep (range expr rule pos args)
+  ;; Generates cod that parses an expression using (rep ...)
   (let (min max)
     (cond
       ((or (symbolp range) (numberp range)) (setf min range max range))
@@ -253,11 +277,13 @@
              (values nil nil))))))
 
 (defun expand-? (expr rule pos args)
+  ;; Generates cod that parses an expression using (? ...)
   (with-gensyms (result success)
     `(with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
        (values (if ,success ,result nil) t))))
 
 (defun expand-& (expr rule pos args)
+  ;; Generates cod that parses an expression using (& ...)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos (treepos-copy ,pos)))
        (with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
@@ -267,6 +293,7 @@
          (values nil nil)))))
 
 (defun expand-! (expr rule pos args)
+  ;; Generates cod that parses an expression using (! ...)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos (treepos-copy ,pos)))
        (with-expansion-failure ((,result ,success) ,expr ,rule ,pos ,args)
@@ -281,6 +308,7 @@
            (values ,result nil))))))
 
 (defun expand-sequence (expr rule pos args type-test)
+  ;; Generates cod that parses an expression using (list ...), (vector ...) or (string ...)
   (with-gensyms (result success length)
     `(when (and (treepos-valid ,pos ,expr) (funcall #',type-test (treeitem ,pos ,expr)))
        (let ((,length (treepos-length ,pos ,expr)))
@@ -300,6 +328,7 @@
   `(parseq-internal `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
 
 (defun expand-list-expr (expr rule pos args)
+  ;; Generates code that parses an expression with a rule that is a list
   ;; Rule is a ...
   (case-test ((first rule) :test symbol=)
     ;; ordered choice
@@ -332,6 +361,7 @@
     (t (try-and-advance (expand-parse-call expr rule pos args) pos))))
 
 (defun expand-rule (expr rule pos args)
+  ;; Generates code according to the given rule
   ;; Rule is
   (cond
     ;; ... nil
@@ -344,9 +374,11 @@
     (t (expand-list-expr expr rule pos args))))
 
 (defun expand-destructure (destruct-lambda result body)
+  ;; Generates code for handling a (:destructure ...) or (:lambda ...) rule option
   `(destructuring-bind ,destruct-lambda (mklist ,result) ,@body))
 
 (defun expand-processing-options (result procs)
+  ;; Generates code for handling rule options
   (with-gensyms (blockname tmp)
     (if (null procs)
         `(values ,result t)
@@ -371,25 +403,32 @@
 ;; Special variables (rule bindings) -----------------------------------------
 
 (defmacro with-special-vars ((&rest vars) &body body)
+  ;; Declares the given vars as special. Vars is like the list in the first argument of a let form.
   `(let (,@vars)
      (declare (special ,@(loop for v in vars collect (if (listp v) (first v) v))))
      ,@body))
 
 (defmacro with-special-vars-from-options (bindings &body body)
+  ;; Generates code that declares the special variables given in the rule options
   (if bindings
       `(with-special-vars (,@bindings) ,@body)
       `(progn ,@body)))
 
 ;; Trace functions -----------------------------------------------------------
 
+;; Counter that is incremented whenever a traced rule is called and decremented when it returns
 (defparameter *trace-depth* 0)
+;; Flag that can be shadowed by a traced rule so that rules called from within that rule can be traced as well
 (defparameter *trace-recursive* nil)
+;; Lookup table for rules that specifies whether a rule is traced (value 1) or traced recursively (value 2) or not (value 0).
 (defparameter *trace-rule* (make-hash-table :test 'equal))
 
 (defun is-traced (trace-option)
+  ;; Determies, whether a rule is traced or not depending on the given option and the *trace-recursive* parameter.
   (or (plusp trace-option) *trace-recursive*))
 
 (defmacro with-tracing ((name pos) &body body)
+  ;; Wrapper for enabling tracing in parse rules
   (with-gensyms (trace-opt result success newpos)
     ;; Lookup tracing options in the hash table.
     ;; This actually closes over the symbol `name' so the parsing function remembers which name it was defined with.
@@ -411,14 +450,21 @@
          (values ,result ,success ,newpos)))))
 
 (defun trace-rule (name &key recursive)
+  ;; Function that enables tracing of the given rule
   (setf (gethash (symbol-name name) *trace-rule*) (if recursive 2 1)))
 
 (defun untrace-rule (name)
+  ;; Function that disables tracing of the given rule
   (setf (gethash (symbol-name name) *trace-rule*) 0))
 
 ;; Left recursion -------------------------------------------------------------
 
 (defmacro with-left-recursion-protection ((pos stack) &body body)
+  ;; Wrapper for rule definitions that checks for left recursion
+  ;; by keeping track of whether the rule has been called at the
+  ;; given position in the parsed sequence or not. The stack is
+  ;; a closed over variable where the current position is pushed
+  ;; on when a rule is called and popped when it returns.
   `(progn
      (when (and ,stack (equal ,pos (first ,stack)))
        (error "Left recursion detected!"))
@@ -478,7 +524,7 @@
 ;; Namespace macros -----------------------------------------------------------
 
 (defmacro with-local-rules (&body body)
-  ;; Shadow the global rule table with a new hash table
+  ;; Shadow the global rule table with a new rule table
   `(let ((*rule-table* (make-hash-table))
          (*trace-rule* (make-hash-table)))
      ;; Execute the body

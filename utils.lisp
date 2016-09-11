@@ -65,6 +65,9 @@
 (defun symbol= (a b)
   (and (symbolp a) (symbolp b) (string= (symbol-name a) (symbol-name b))))
 
+(defun quoted-symbol-p (x)
+  (and (listp x) (l= x 2) (eql (first x) 'quote) (symbolp (second x))))
+
 ;; Control flow macros
 
 (defmacro case-test ((keyform &key (test 'eql)) &body clauses)
