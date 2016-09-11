@@ -31,40 +31,6 @@
            (error "Unknown rule: ~a" rule))))
     (t (error "Invalid rule: ~a" rule))))
 
-;; Tree position functions ---------------------------------------------------
-
-(defun treepos-valid (pos tree)
-  (when (and (sequencep tree) (not (minusp (first pos))))
-    (if (l> pos 1)
-        ;; Not toplevel
-        (when (> (length tree) (first pos))
-          ;; Descend into the toplevel item to recursively check the sublevel
-          (treepos-valid (rest pos) (elt tree (first pos))))
-        ;; Toplevel. Check whether the list is longer than the position index.
-        (> (length tree) (first pos)))))
-
-(defun treeitem (pos tree)
-  (when (and (sequencep tree) (listp pos))
-    (cond
-      ((l> pos 1) (treeitem (rest pos) (elt tree (first pos))))
-      ((null pos) tree)
-      (t (elt tree (first pos))))))
-
-(defun treepos-length (pos tree)
-  (if (sequencep tree)
-     (if (l> pos 1)
-         (treepos-length (rest pos) (nth (first pos) tree))
-         (and (sequencep (elt tree (first pos))) (length (elt tree (first pos)))))
-     (error "Attempting to descend into a non-sequence type.")))
-
-(defun treepos-step (pos &optional (delta 1))
-  (let ((newpos (copy-tree pos)))
-    (incf (car (last newpos)) delta)
-    newpos))
-
-(defun treepos-copy (pos)
-  (copy-tree pos))
-
 ;; Expansion helper macros ---------------------------------------------------
 
 (defmacro test-and-advance (expr pos test result &optional (inc 1))
