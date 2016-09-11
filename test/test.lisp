@@ -1,5 +1,7 @@
 (in-package :parseq)
 
+(defrule terminal-t () t)
+(defrule terminal-nil () nil)
 (defrule terminal-symbol () 'a)
 (defrule terminal-character () #\a)
 (defrule terminal-string () "abc")
@@ -115,6 +117,12 @@
 
 (define-test terminal-test ()
   (check
+    (test-parseq 'terminal-t '(t) t t)
+    (test-parseq 'terminal-t '(5) t 5)
+    (test-parseq 'terminal-t '(nil) nil nil)
+    (test-parseq 'terminal-nil '(nil) t nil)
+    (test-parseq 'terminal-nil '(()) t nil)
+    (test-parseq 'terminal-nil '(t) nil nil)
     (test-parseq 'terminal-symbol '(a) t 'a)
     (test-parseq 'terminal-symbol '(b) nil nil)
     (test-parseq 'terminal-character '(#\a) t #\a)

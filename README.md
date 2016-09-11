@@ -70,6 +70,8 @@ Terminal are the objects that the parse rules finally expand into.
  * `list` matches any list
  * `vector` matches any vector
  * `string` matches any string
+ * `t' matches anything not `nil`
+ * `nil` matches `nil` or an empty list
 
 Literal values can be specified to match specific items or subsequences in the sequence being parsed:
 

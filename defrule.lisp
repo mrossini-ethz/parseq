@@ -131,8 +131,12 @@
      (cond
        ;; Is a lambda variable. Since we don't know what the value is at compile time, we have to dispatch at runtime
        ((have rule args) `(try-and-advance (runtime-dispatch ,expr ,rule ,pos) ,pos))
+       ;; Is the symbol 't'
+       ((eql rule t) `(test-and-advance ,expr ,pos (not (null (treeitem ,pos ,expr))) (treeitem ,pos ,expr)))
+       ;; Is the symbol 'nil'
+       ((null rule) `(test-and-advance ,expr ,pos (null (treeitem ,pos ,expr)) nil))
        ;; Is the symbol 'char'
-       ((symbol= rule 'char) `(test-and-advance ,expr ,pos (characterp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+       ((symbol= rule 'char) `(test-and-advance ,expr ,pos (characterp (treeitem ,pos ,expr)) (treeitem ,pos, expr)))
        ;; Is the symbol 'byte'
        ((symbol= rule 'byte) `(test-and-advance ,expr ,pos (unsigned-byte-p (treeitem ,pos ,expr)) (treeitem ,pos ,expr)))
        ;; Is the symbol 'symbol'
@@ -148,7 +152,8 @@
        ;; Is the symbol 'string'
        ((symbol= rule 'string) `(test-and-advance ,expr ,pos (stringp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
        ;; Is a call to another rule (without args)
-       (t `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))))))
+       (t `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))))
+    (t (error "Unknown atom: ~a (~a)" rule (type-of rule)))))
 
 (defun expand-or (expr rule pos args)
   ;; Generates code that parses an expression using (or ...)
