@@ -509,3 +509,11 @@
          (*trace-rule* (make-hash-table)))
      ;; Execute the body
      ,@body))
+
+(defmacro with-saved-rules (&body body)
+  ;; Shadow the global rule table with a copy of the rule table
+  ;; When returninng from the body the original rules are restored
+  `(let ((*rule-table* (copy-hash-table *rule-table*))
+         (*trace-rule* (copy-hash-table *trace-rule*)))
+     ;; Execute the body
+     ,@body))

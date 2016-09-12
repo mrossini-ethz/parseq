@@ -465,12 +465,28 @@
     (test-parseq 'bind-nest '(4 3 a a a 2 a a 6 a a a a a a a 1 a) nil nil)
     (test-parseq 'bind-nest '(4 3 a a a 2 a a 8 a a a a a a a 1 a) nil nil)))
 
-(define-test local-rules-test ()
-  (check
+(define-test namespace-test ()
+  (check-with-side-effects
+    ;; Sanity check
+    (test-parseq 'nonterminal-and '(a b c) t '(a b c))
+    ;; Local rules
+    (with-local-rules
+      (condition= (parseq 'nonterminal-and '(a b c)) simple-error))
     (with-local-rules
       (defrule nonterminal-and () (and 'd 'e 'f))
-      (test-parseq 'nonterminal-and '(a b c) nil nil)
-      (test-parseq 'nonterminal-and '(d e f) t '(d e f)))))
+      (test-parseq 'nonterminal-and '(a b c) nil nil))
+    (with-local-rules
+      (defrule nonterminal-and () (and 'd 'e 'f))
+      (test-parseq 'nonterminal-and '(d e f) t '(d e f)))
+    ;; Saved rules
+    (with-saved-rules
+      (test-parseq 'nonterminal-and '(a b c) t '(a b c)))
+    (with-saved-rules
+      (defrule nonterminal-and () (and 'd 'e 'f))
+      (test-parseq 'nonterminal-and '(d e f) t '(d e f)))
+    ;; Sanity check
+    (test-parseq 'nonterminal-and '(a b c) t '(a b c))
+    (test-parseq 'nonterminal-and '(d e f) nil nil)))
 
 (define-test recursion-test ()
   (check
@@ -524,7 +540,7 @@
     (multiopt-test)
     (nesting-test)
     (bind-test)
-    (local-rules-test)
+    (namespace-test)
     (recursion-test)
     (left-recursion-test)
     (loop-test)))

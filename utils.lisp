@@ -175,3 +175,12 @@
 
 (defun treepos-copy (pos)
   (copy-tree pos))
+
+;; Hash table functions
+
+(defun copy-hash-table (hash-table)
+  ;; Creates a copy of the given hash table
+  (loop for k being the hash-keys in hash-table using (hash-value v)
+     with ht = (make-hash-table)
+     do (setf (gethash k ht) v)
+     finally (return ht)))

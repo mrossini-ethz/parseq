@@ -332,6 +332,11 @@ You can use local namespaces for rule names:
   (defrule ...)
   (parseq ...))
 ```
+Within the body of `with-local-rules` new rules can be defined that will be invisible outside.
+Also, outside rules will be invisible within the body.
+Instead of `with-local-rules` the macro `with-saved-rules` can be used.
+Within its body, rules from outside are still defined and can be redefined without affecting the outside:
+The rules from outside are saved before entering the body and restored when the body returns.
 
 ## Upcoming features
 These features _may_ be implemented in the future:
