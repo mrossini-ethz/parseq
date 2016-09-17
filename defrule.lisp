@@ -251,8 +251,12 @@
       ((and (listp range) (l= range 2)) (setf min (first range) max (second range)))
       (t (error "Illegal range specified!")))
     (with-gensyms (ret results n)
-      `(let ((,results (loop for ,n upfrom 0 for ,ret = (when (< ,n ,max) (multiple-value-list ,(expand-rule expr rule pos args))) while (second ,ret) collect (first ,ret))))
-         (if (and (l>= ,results ,min) (l<= ,results ,max))
+      `(let ((,results (loop
+                          for ,n upfrom 0
+                          for ,ret = (when (or (null ,max) (< ,n ,max)) (multiple-value-list ,(expand-rule expr rule pos args)))
+                          while (second ,ret)
+                          collect (first ,ret))))
+         (if (and (or (null ,min) (l>= ,results ,min)) (or (null ,max) (l<= ,results ,max)))
              (values ,results t)
              (values nil nil))))))
 
