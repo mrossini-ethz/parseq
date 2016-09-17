@@ -101,7 +101,17 @@ It produces a list of the subexpression results.
 (and~ subexpression ...)
 ```
 The expression succeeds for a sequence if all subexpressions succeed, in any order.
-It produces a list of the subexpression results (in the order in which they are listed in the expression).
+It produces a list of the subexpression results (in the order in which they are listed in the rule definition).
+
+There is a variant of `and~` that is more flexible:
+```lisp
+(and~~ (1 2 (1) (2 3) (4 nil) ...) subexpr-1 subexpr-2 subexpr-3 subexpr-4 subexpr-5 ...)
+```
+The first argument to `and~~` specifies how may times a subexpression is allowed to be repeated in the unordered sequence.
+In this example, the first subexpression is required exactly once, the second one exactly twice, the third zero times or once (`(N)` is short for `(0 N)`), the fourth between 2 and 3 times and the fifth at least 4 times.
+The result is a list of lists:
+The list is ordered in the same way that subexpressions are given in the rule definition.
+The *n*-th list within the list contains the results of the *n*-th subexpression in the order in which they are found in the parsed expression.
 
 ### Ordered choice
 ```lisp
@@ -341,9 +351,6 @@ The rules from outside are saved before entering the body and restored when the 
 ## Upcoming features
 These features _may_ be implemented in the future:
 
- * nonterminals similar to `(and~ ...)` (unordered sequences)
-   * all subexpressions required with duplicates allowed
-   * some subexpressions required
  * short forms for combined nonterminals, e.g.
    * `(? (and ...))`
    * `(? (or ...))`

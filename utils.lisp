@@ -112,16 +112,20 @@
 (defmacro or2-exclusive ((exclusion-list) &rest forms)
   ;; Like or2, but checks whether form is excluded in exclusion list before evaluating form.
   ;; Also returns the  index of the form that succeeded
-  (with-gensyms (result success blockname)
-    `(block ,blockname
-       ,@(loop for form in forms for i upfrom 0 collect
-            ;; Check for exclusion
-              `(unless (nth ,i ,exclusion-list)
-                 ;; Form is not excluded, try it
-                 (multiple-value-bind (,result ,success) ,(nth i forms)
-                   (when ,success
-                     ;; Return the result, the success, plus the index which succeeded
-                     (return-from ,blockname (values ,result ,success ,i)))))))))
+  (with-gensyms (result success blockname excl)
+    ;; Evaluate exclusion-list only once
+    `(let ((,excl ,exclusion-list))
+       ;; Create a block to return from
+       (block ,blockname
+         ;; Try each form in succession
+         ,@(loop for form in forms for i upfrom 0 collect
+              ;; Check for exclusion
+                `(unless (nth ,i ,excl)
+                   ;; Form is not excluded, try it
+                   (multiple-value-bind (,result ,success) ,(nth i forms)
+                     (when ,success
+                       ;; Return the result, the success, plus the index which succeeded
+                       (return-from ,blockname (values ,result ,success ,i))))))))))
 
 ;; Random function (for testing)
 

@@ -182,6 +182,44 @@
          ;; Return list of results
          (values ,results t)))))
 
+(defun range->min-max (range)
+  (cond
+    ((or (symbolp range) (numberp range)) (list range range))
+    ((and (listp range) (l= range 1)) (list 0 (first range)))
+    ((and (listp range) (l= range 2)) (list (first range) (second range)))
+    (t (error "Illegal range specified!"))))
+
+(defun check-range (count range)
+  (let ((min (first range)) (max (second range)))
+    (and (or (null min) (>= count min)) (or (null max) (<= count max)))))
+
+(defun make-checklist (counts ranges)
+  (mapcar (lambda (count range) (or (null (second range)) (>= count (second range)))) counts ranges))
+
+(defun expand-and~~ (expr rep rule pos args)
+  ;; Generates code that parses an expression using (and~~ ...)
+  (with-gensyms (results counts ranges result success index)
+    ;; Make a check list that stores the number of times a rule has been applied.
+    ;; Also make a list of results and one that stores the range of allowed rule applications.
+    `(let ((,counts (make-list ,(list-length rule) :initial-element 0))
+           (,results (make-list ,(list-length rule) :initial-element nil))
+           (,ranges (list ,@(loop for r in rep collect `(list ,@(range->min-max r))))))
+       ;; Check each rule whether it matches the next sequence item
+       (loop do
+            ;; Try each rule, except those that have already exceeded their maximum allowed applications
+            (multiple-value-bind (,result ,success ,index) (or2-exclusive ((make-checklist ,counts ,ranges)) ,@(loop for r in rule collect (expand-rule expr r pos args)))
+              ;; If none of the sub-rules succeeded, the rule fails entirely
+              (unless ,success
+                (return))
+              ;; Check the succeeded rule in the list
+              (incf (nth ,index ,counts))
+              ;; Add the result to the list of results
+              (appendf (nth ,index ,results) ,result)))
+       ;; Catch loop failure
+       (unless (some #'null (mapcar #'check-range ,counts ,ranges))
+         ;; Return list of results
+         (values ,results t)))))
+
 (defun expand-and (expr rule pos args)
   ;; Generates code that parses an expression using (and ...)
   (with-gensyms (list result block oldpos success)
@@ -244,12 +282,7 @@
 
 (defun expand-rep (range expr rule pos args)
   ;; Generates cod that parses an expression using (rep ...)
-  (let (min max)
-    (cond
-      ((or (symbolp range) (numberp range)) (setf min range max range))
-      ((and (listp range) (l= range 1)) (setf min 0 max (first range)))
-      ((and (listp range) (l= range 2)) (setf min (first range) max (second range)))
-      (t (error "Illegal range specified!")))
+  (destructuring-bind (min max) (range->min-max range)
     (with-gensyms (ret results n)
       `(let ((,results (loop
                           for ,n upfrom 0
@@ -321,6 +354,8 @@
     (and (expand-and expr (rest rule) pos args))
     ;; sequence (unordered)
     (and~ (expand-and~ expr (rest rule) pos args))
+    ;; sequence (unordered, extended)
+    (and~~ (expand-and~~ expr (cadr rule) (cddr rule) pos args))
     ;; negation
     (not (expand-not expr (second rule) pos args))
     ;; greedy repetition
