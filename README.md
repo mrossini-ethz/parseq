@@ -113,6 +113,16 @@ The result is a list of lists:
 The list is ordered in the same way that subexpressions are given in the rule definition.
 The *n*-th list within the list contains the results of the *n*-th subexpression in the order in which they are found in the parsed expression.
 
+The following abbreviations are allowed for repetitions:
+
+| Abbreviation | Long notation | Meaning             |
+| ------------ |:-------------:| ------------------- |
+| `3`          | `(3 3)`       | Exactly 3 times     |
+| `(3)`        | `(0 3)`       | Up to 3 times       |
+| `*`          | `(0 nil)`     | Any number of times |
+| `+`          | `(1 nil)`     | At least once       |
+| `?`          | `(0 1)`       | Zero times or once  |
+
 ### Ordered choice
 ```
 (or subexpression ...)
@@ -147,6 +157,7 @@ Like `(* subexpression)`, but at least one repetition is required.
 (rep (2 5) subexpression)
 ```
 Succeeds, if subexpression matches exactly 5 times, up to 5 times, or between 2 and 5 times, respectively.
+See the `(and~~ ...)` nonterminal for a list of abbreviations allowed for expressing repetitions.
 Returns a list of the successful results.
 
 ### Optional

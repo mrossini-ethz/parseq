@@ -6,6 +6,7 @@ Parseq uses [semantic versioning](http://semver.org/).
 
 ### Features
 
+  * Repetitions in `(rep ...)` and `(and~~ ...)` are now allowed to be specified as `*` for `(0 nil)`, `+` for `(1 nil)` and `?` for `(0 1)`.
   * Now allowing unsigned bytes to be converted to strings by the `:string` processing option.
 
 ### Bugfixes

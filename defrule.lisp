@@ -184,9 +184,15 @@
 
 (defun range->min-max (range)
   (cond
-    ((or (symbolp range) (numberp range)) (list range range))
+    ((symbolp range)
+     (case range
+       (+ (list 1 nil))
+       (* (list 0 nil))
+       (? (list 0 1))
+       (t (list range range))))
+    ((numberp range) (list range range))
     ((and (listp range) (l= range 1)) (list 0 (first range)))
-    ((and (listp range) (l= range 2)) (list (first range) (second range)))
+    ((and (listp range) (l= range 2) (or (null (first range)) (null (second range)) (<= (first range) (second range)))) (list (first range) (second range)))
     (t (error "Illegal range specified!"))))
 
 (defun check-range (count range)
