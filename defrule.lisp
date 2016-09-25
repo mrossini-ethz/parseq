@@ -194,7 +194,7 @@
     (and (or (null min) (>= count min)) (or (null max) (<= count max)))))
 
 (defun make-checklist (counts ranges)
-  (mapcar (lambda (count range) (or (null (second range)) (>= count (second range)))) counts ranges))
+  (mapcar (lambda (count range) (and (second range) (>= count (second range)))) counts ranges))
 
 (defun expand-and~~ (expr rep rule pos args)
   ;; Generates code that parses an expression using (and~~ ...)
