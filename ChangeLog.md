@@ -4,6 +4,10 @@ Parseq uses [semantic versioning](http://semver.org/).
 
 ## Unreleased:
 
+### Features
+
+  * Now allowing unsigned bytes to be converted to strings by the `:string` processing option.
+
 ### Bugfixes
 
   * The `:flatten`, `:string` and `:vector` processing options are now correctly applied to the result of the previous processing option rather than directly to the parse result.

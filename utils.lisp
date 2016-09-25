@@ -144,6 +144,7 @@
                                                               ((stringp i) i)
                                                               ((characterp i) (string i))
                                                               ((symbolp i) (symbol-name i))
+                                                              ((unsigned-byte-p i) (string (code-char i)))
                                                               (t (error "Cannot convert ~a into string!" (type-of i)))))))
 
 ;; Tree position functions
