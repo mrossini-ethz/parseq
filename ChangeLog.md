@@ -2,6 +2,12 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
+## Unreleased:
+
+### Bugfixes
+
+  * The `:flatten`, `:string` and `:vector` processing options are now correctly applied to the result of the previous processing option rather than directly to the parse result.
+
 ## Version 0.2.0 - 2016-09-17
 
 ### Features
