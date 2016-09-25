@@ -182,23 +182,6 @@
          ;; Return list of results
          (values ,results t)))))
 
-(defun range->min-max (range)
-  (cond
-    ((symbolp range)
-     (case range
-       (+ (list 1 nil))
-       (* (list 0 nil))
-       (? (list 0 1))
-       (t (list range range))))
-    ((numberp range) (list range range))
-    ((and (listp range) (l= range 1)) (list 0 (first range)))
-    ((and (listp range) (l= range 2) (or (null (first range)) (null (second range)) (<= (first range) (second range)))) (list (first range) (second range)))
-    (t (error "Illegal range specified!"))))
-
-(defun check-range (count range)
-  (let ((min (first range)) (max (second range)))
-    (and (or (null min) (>= count min)) (or (null max) (<= count max)))))
-
 (defun make-checklist (counts ranges)
   (mapcar (lambda (count range) (and (second range) (>= count (second range)))) counts ranges))
 
@@ -209,7 +192,7 @@
     ;; Also make a list of results and one that stores the range of allowed rule applications.
     `(let ((,counts (make-list ,(list-length rule) :initial-element 0))
            (,results (make-list ,(list-length rule) :initial-element nil))
-           (,ranges (list ,@(loop for r in rep collect `(list ,@(range->min-max r))))))
+           (,ranges (list ,@(loop for r in rep collect `(list ,@(decode-range r))))))
        ;; Check each rule whether it matches the next sequence item
        (loop do
             ;; Try each rule, except those that have already exceeded their maximum allowed applications
@@ -288,7 +271,7 @@
 
 (defun expand-rep (range expr rule pos args)
   ;; Generates cod that parses an expression using (rep ...)
-  (destructuring-bind (min max) (range->min-max range)
+  (destructuring-bind (min max) (decode-range range)
     (with-gensyms (ret results n)
       `(let ((,results (loop
                           for ,n upfrom 0

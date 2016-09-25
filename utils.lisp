@@ -189,3 +189,22 @@
      with ht = (make-hash-table)
      do (setf (gethash k ht) v)
      finally (return ht)))
+
+;; Range functions
+
+(defun decode-range (range)
+  (cond
+    ((symbolp range)
+     (case range
+       (+ (list 1 nil))
+       (* (list 0 nil))
+       (? (list 0 1))
+       (t (list range range))))
+    ((numberp range) (list range range))
+    ((and (listp range) (l= range 1)) (list 0 (first range)))
+    ((and (listp range) (l= range 2) (or (null (first range)) (null (second range)) (<= (first range) (second range)))) (list (first range) (second range)))
+    (t (error "Illegal range specified!"))))
+
+(defun check-range (count range)
+  (let ((min (first range)) (max (second range)))
+    (and (or (null min) (>= count min)) (or (null max) (<= count max)))))
