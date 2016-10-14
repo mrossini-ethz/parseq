@@ -232,7 +232,7 @@
          (values ,list t)))))
 
 (defun expand-not (expr rule pos args)
-  ;; Generates cod that parses an expression using (not ...)
+  ;; Generates code that parses an expression using (not ...)
   (with-gensyms (oldpos result success)
     ;; Save the current position
     `(let ((,oldpos (treepos-copy ,pos)))
@@ -254,14 +254,14 @@
            (values nil nil))))))
 
 (defun expand-* (expr rule pos args)
-  ;; Generates cod that parses an expression using (* ...)
+  ;; Generates code that parses an expression using (* ...)
    (with-gensyms (ret)
      `(values
        (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret))
        t)))
 
 (defun expand-+ (expr rule pos args)
-  ;; Generates cod that parses an expression using (+ ...)
+  ;; Generates code that parses an expression using (+ ...)
   (with-gensyms (result success ret)
     `(with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
        (values
@@ -270,7 +270,7 @@
        (values nil nil))))
 
 (defun expand-rep (range expr rule pos args)
-  ;; Generates cod that parses an expression using (rep ...)
+  ;; Generates code that parses an expression using (rep ...)
   (destructuring-bind (min max) (decode-range range)
     (with-gensyms (ret results n)
       `(let ((,results (loop
@@ -283,13 +283,13 @@
              (values nil nil))))))
 
 (defun expand-? (expr rule pos args)
-  ;; Generates cod that parses an expression using (? ...)
+  ;; Generates code that parses an expression using (? ...)
   (with-gensyms (result success)
     `(with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
        (values (if ,success ,result nil) t))))
 
 (defun expand-& (expr rule pos args)
-  ;; Generates cod that parses an expression using (& ...)
+  ;; Generates code that parses an expression using (& ...)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos (treepos-copy ,pos)))
        (with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
@@ -299,7 +299,7 @@
          (values nil nil)))))
 
 (defun expand-! (expr rule pos args)
-  ;; Generates cod that parses an expression using (! ...)
+  ;; Generates code that parses an expression using (! ...)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos (treepos-copy ,pos)))
        (with-expansion-failure ((,result ,success) ,expr ,rule ,pos ,args)
@@ -314,7 +314,7 @@
            (values ,result nil))))))
 
 (defun expand-sequence (expr rule pos args type-test)
-  ;; Generates cod that parses an expression using (list ...), (vector ...) or (string ...)
+  ;; Generates code that parses an expression using (list ...), (vector ...) or (string ...)
   (with-gensyms (result success length)
     `(when (and (treepos-valid ,pos ,expr) (funcall #',type-test (treeitem ,pos ,expr)))
        (let ((,length (treepos-length ,pos ,expr)))
