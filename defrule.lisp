@@ -92,8 +92,12 @@
       ((vectorp arg) (if (equalp arg (treeitem pos expr)) (values arg t (treepos-step pos 1))))
       ;; Is a number
       ((numberp arg) (if (= arg (treeitem pos expr)) (values arg t (treepos-step pos))))
+      ;; Is a symbol (possibly a valid rule)
+      ((symbolp arg) (parseq-internal arg expr pos))
+      ;; Is a list (possibly a valid rule with arguments)
+      ((listp arg) (parseq-internal arg expr pos))
       ;; Not implemented
-      (t (error "Unknown terminal: ~a (~a)" arg (type-of arg))))))
+      (t (error "Unknown terminal: ~a (of type ~a)" arg (type-of arg))))))
 
 ;; Expansion functions -----------------------------------------------
 
@@ -330,9 +334,16 @@
            ;; Failure
            (values nil nil))))))
 
+(defun expand-parse-call-recursion (rule args)
+  (loop for r in rule for n upfrom 0 collect
+       (cond
+         ((and (plusp n) (have r args)) r)
+         ((and (plusp n) (listp r)) `(list ,@(expand-parse-call-recursion r args)))
+         (t `(quote ,r)))))
+
 (defun expand-parse-call (expr rule pos args)
   ;; Makes a call to `parseq-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
-  `(parseq-internal `(,,@(loop for r in rule for n upfrom 0 collect (if (and (plusp n) (have r args)) r `(quote ,r)))) ,expr ,pos))
+  `(parseq-internal (list ,@(expand-parse-call-recursion rule args)) ,expr ,pos))
 
 (defun expand-list-expr (expr rule pos args)
   ;; Generates code that parses an expression with a rule that is a list
