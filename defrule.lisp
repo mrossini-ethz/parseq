@@ -76,23 +76,24 @@
   ;; Function that parses terminals at runtime. This is used
   ;; when the type of terminal is unknown at compile time
   ;; (such as for rule arguments).
-  (cond
-    ;; Is a quoted symbol
-    ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values (second arg) t (treepos-step pos))))
-    ;; Is a character
-    ((characterp arg) (if (char= arg (treeitem pos expr)) (values arg t (treepos-step pos))))
-    ;; Is a string and expression is also a string
-    ((and (stringp expr) (stringp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg)))))
-    ;; Is a string, expression is not a string
-    ((stringp arg) (if (string= arg (treeitem pos expr)) (values arg t (treepos-step pos 1))))
-    ;; Is a vector and expression is also a vector
-    ((and (vectorp expr) (vectorp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg)))))
-    ;; Is a vector, expression is not a vector
-    ((vectorp arg) (if (equalp arg (treeitem pos expr)) (values arg t (treepos-step pos 1))))
-    ;; Is a number
-    ((numberp arg) (if (= arg (treeitem pos expr)) (values arg t (treepos-step pos))))
-    ;; Not implemented
-    (t (error "Unknown terminal: ~a (~a)" arg (type-of arg)))))
+  (when (treepos-valid pos expr)
+    (cond
+      ;; Is a quoted symbol
+      ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values (second arg) t (treepos-step pos))))
+      ;; Is a character
+      ((characterp arg) (if (char= arg (treeitem pos expr)) (values arg t (treepos-step pos))))
+      ;; Is a string and expression is also a string
+      ((and (stringp expr) (stringp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg)))))
+      ;; Is a string, expression is not a string
+      ((stringp arg) (if (string= arg (treeitem pos expr)) (values arg t (treepos-step pos 1))))
+      ;; Is a vector and expression is also a vector
+      ((and (vectorp expr) (vectorp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg)))))
+      ;; Is a vector, expression is not a vector
+      ((vectorp arg) (if (equalp arg (treeitem pos expr)) (values arg t (treepos-step pos 1))))
+      ;; Is a number
+      ((numberp arg) (if (= arg (treeitem pos expr)) (values arg t (treepos-step pos))))
+      ;; Not implemented
+      (t (error "Unknown terminal: ~a (~a)" arg (type-of arg))))))
 
 ;; Expansion functions -----------------------------------------------
 
