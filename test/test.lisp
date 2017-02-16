@@ -43,6 +43,11 @@
 (defrule parameter-terminal (x) x)
 (defrule parameter-terminal-indirect () (parameter-terminal 'a))
 (defrule parameter-repeat (x) (rep x 'a))
+;; This is a convoluted test that uses nesting of nonterminals with parameters
+(defrule parameter-slist (item sep) (and item (* (and sep item))))
+(defrule parameter-slist-user-sep (y) (or 'b y))
+(defrule parameter-slist-user (z) (parameter-slist 'a (parameter-slist-user-sep z)))
+(defrule parameter-slist-user-user () (parameter-slist-user 'c))
 (defrule parameter-constant (x) 'a (:constant x))
 
 (defrule option-constant () (and 'a 'b 'c) (:constant 4))
@@ -457,6 +462,15 @@
     (test-parseq '(parameter-repeat 3) '(a a) nil nil)
     (test-parseq '(parameter-repeat 3) '(a a a) t '(a a a))
     (test-parseq '(parameter-repeat 3) '(a a a a) nil nil)
+    ;; a b a b a b a
+    (test-parseq '(parameter-slist-user-user) '(a) t '(a nil) nil)
+    (test-parseq '(parameter-slist-user-user) '(a b a) t '(a ((b a))) nil)
+    (test-parseq '(parameter-slist-user-user) '(a b a b a) t '(a ((b a) (b a))) nil)
+    (test-parseq '(parameter-slist-user-user) '(a b a b a b a) t '(a ((b a) (b a) (b a))) nil)
+    (test-parseq '(parameter-slist-user-user) '(a b a) t '(a ((b a))) nil)
+    (test-parseq '(parameter-slist-user-user) '(a c a) t '(a ((c a))) nil)
+    (test-parseq '(parameter-slist-user-user) '(a b a c a) t '(a ((b a) (c a))) nil)
+    (test-parseq '(parameter-slist-user-user) '(a b a c a b a) t '(a ((b a) (c a) (b a))) nil)
     ;; 'a (:constant x)
     (test-parseq '(parameter-constant b) '(a) t 'b)))
 
