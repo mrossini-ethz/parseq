@@ -43,6 +43,8 @@
 (defrule parameter-terminal (x) x)
 (defrule parameter-terminal-indirect () (parameter-terminal 'a))
 (defrule parameter-repeat (x) (rep x 'a))
+(defrule parameter-slist (item sep) (and item (* (and sep item))))
+(defrule parameter-slist-user () (parameter-slist 'a 'b))
 (defrule parameter-constant (x) 'a (:constant x))
 
 (defrule option-constant () (and 'a 'b 'c) (:constant 4))
@@ -457,6 +459,11 @@
     (test-parseq '(parameter-repeat 3) '(a a) nil nil)
     (test-parseq '(parameter-repeat 3) '(a a a) t '(a a a))
     (test-parseq '(parameter-repeat 3) '(a a a a) nil nil)
+    ;; a b a b a b a
+    (test-parseq '(parameter-slist-user) '(a) t '(a nil) nil)
+    (test-parseq '(parameter-slist-user) '(a b a) t '(a ((b a))) nil)
+    (test-parseq '(parameter-slist-user) '(a b a b a) t '(a ((b a) (b a))) nil)
+    (test-parseq '(parameter-slist-user) '(a b a b a b a) t '(a ((b a) (b a) (b a))) nil)
     ;; 'a (:constant x)
     (test-parseq '(parameter-constant b) '(a) t 'b)))
 
