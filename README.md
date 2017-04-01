@@ -2,9 +2,10 @@
 
 ## Description
 Parseq (pronounced [parsec](https://en.wikipedia.org/wiki/Parsec)) is a package for common lisp.
-It can be used for parsing sequences: strings, binary data, lists and vectors.
-Furthermore parseq is able to parse nested structures such as trees (lists of lists).
-Parsing is controlled via grammar rules that can be defined through a simple interface that allows the rules to be parametrised.
+It can be used for parsing lisp's sequences types: strings, binary data, lists and vectors.
+Furthermore, parseq is able to parse nested structures such as trees (lists of lists).
+Parseq uses [parsing expression grammars](https://en.wikipedia.org/wiki/Parsing_expression_grammar) (PEG) that can be defined through a simple interface.
+It allows the grammar rules to be parametrised.
 Additionally, the parsing result can be transformed and the grammar made context aware.
 
 The package is inspired by [Esrap](https://nikodemus.github.io/esrap/) and uses a very similar interface.
@@ -12,7 +13,7 @@ No code is shared between the two projects, however.
 The features of Esrap are are mostly included in parseq and complemented with additional, orthogonal features.
 Any resemblance to [esrap-liquid](https://github.com/mabragor/esrap-liquid) is merely coincidental.
 
-The package is still under development which means that some features are not yet implemented, that there may be bugs and that the interface and behaviour may change in the future.
+The package is still under development. This means that some features are not yet implemented and that the interface and behaviour may change in the future.
 See the warnings below.
 
 ### Features
@@ -22,28 +23,28 @@ Parseq provides the follwing features:
  * Allows parsing of sequences within sequences (e.g. trees, strings within lists, ...)
  * Simple interface, very similar to [Esrap](https://nikodemus.github.io/esrap/)
  * Provides many specific and non-specific terminals
- * Includes a large set of powerful nonterminals
+ * Implements the standard PEG expressions and includes useful extensions
  * Parse results can be transformed during parsing
- * Grammar can be made context aware:
-   * Run parse result through lisp code for verification
+ * Grammars can be made context aware:
+   * Run parse results through lisp code for verification
    * Share data between parse rules
- * Parsing rules can be parametrized
+ * Parsing rules can be parametrised
  * Uses separate namespace(s) for parse rules
  * Tracing of grammar rules
 
 ## Basic usage
 
-First, grammar rules should be defined:
+First, define a set of grammar rules:
 ```
 (defrule foo () 'foo)
 (defrule bar () 'bar)
 (defrule foobar () (and foo bar))
 ```
-The first argument to `defrule` is name of the nonterminal that the rule represents.
-These names use a different namespace from everything else.
+The first argument to `defrule` is the nonterminal symbol that the rule represents.
+These symbols use a different namespace from everything else.
 The second argument is a list of arguments that the rule takes (none in this example).
-The third argument specifies what the nonterminal symbol should expand into.
-In this example, the nonterminal `foo` expands into the lisp symbol `foo`.
+The third argument specifies how the nonterminal symbol should be parsed.
+In this example, the nonterminal `foo` requires the parsing of the lisp symbol `foo`.
 The rule `foobar` combines the two rules `foo` and `bar` to match the list `(foo bar)`, the vector `#(foo bar)` or the string `"FOOBAR"`.
 The above example could alternatively be stated as
 ```
@@ -57,14 +58,15 @@ Parsing is initiated by calling
 ```
 which will return the list `(foo bar)` as well as `T` for success.
 If the parse is not successful, `NIL` is returned.
-The first argument is a named nonterminal defined through `defrule`.
+The first argument is a nonterminal symbol defined through `defrule`.
 The second argument is the sequence that should be parsed.
 
 This concludes the basic usage of the package. Almost everything is done through `defrule` and `parseq`.
 There are some extra arguments, however, that are explained below.
 
 ## Terminals
-Terminals are the objects that the parse rules finally expand into.
+Terminals are the objects that actually appear in the parsed sequence.
+The following types are item classes:
 
  * `symbol` stands for any lisp symbol
  * `form` matches literally everything
@@ -88,34 +90,77 @@ Literal values can be specified to match specific items or subsequences in the s
 More terminals may be available in later versions of parseq.
 
 ## Nonterminals
-The following nonterminals are available:
+Nonterminal symbols represent parsing expressions that consist of terminals and/or other nonterminals.
+They can be defined using the `defrule` macro.
 
-### Rules
-Any rule defined with `defrule` is a nonterminal and can be used through its name.
+## Standard expressions
+These are the standard combinations of a parsing expression grammar.
 
-### Sequence (ordered)
+### Sequence
 ```
 (and subexpression ...)
 ```
-The expression succeeds for a sequence if all subexpressions succeed in order.
+The expression succeeds for a sequence if all subexpressions succeed in the given order.
 It produces a list of the subexpression results.
+On success, the amount of input consumed is determined by the subexpressions.
 
-### Sequence (unordered)
+### Ordered choice
 ```
-(and~ subexpression ...)
+(or subexpression ...)
 ```
-The expression succeeds for a sequence if all subexpressions succeed, in any order.
-It produces a list of the subexpression results (in the order in which they are listed in the rule definition).
+The subexpressions are tried in the given order and the result of the first one that succeeds is accepted.
+It produces the result of the succeding subexpression or `NIL` if none match.
+The amount of input consumed depends on the subexpression.
 
-There is a variant of `and~` that is more flexible:
+### Greedy repetition
 ```
-(and~~ (1 2 (1) (2 3) (4 nil) ...) subexpr-1 subexpr-2 subexpr-3 subexpr-4 subexpr-5 ...)
+(* subexpression)
 ```
-The first argument to `and~~` specifies how may times each subexpression is allowed to be repeated.
-In this example, the first subexpression is required exactly once, the second one exactly twice, the third zero times or once (`(N)` is short for `(0 N)`), the fourth between 2 and 3 times and the fifth at least 4 times.
-The result is a list of lists:
-The list is ordered in the same way that subexpressions are given in the rule definition.
-The *n*-th list within the list contains the results of the *n*-th subexpression in the order in which they are found in the parsed expression.
+Tries subexpression consecutively as many times as possible.
+Always succeeds because zero repetitions are allowed.
+Returns a list of the succeeding matches.
+The amount of input consumed depends on the subexpression and the number of times it matches.
+
+### Greedy positive repetition
+```
+(+ subexpression)
+```
+Like `(* subexpression)`, but at least one repetition is required.
+
+### Optional
+```
+(? subexpression)
+```
+Consumes and returns whatever subexpression consumes if it succeeds.
+This operation is greedy which means that if the subexpression matches, it will consume the corresponding input.
+If the subexpression fails, no input is consumed and `NIL` returned.
+
+### Followed-by predicate
+```
+(& subexpression)
+```
+Succeeds, if subexpression succeeds, but consumes no input.
+The result of the subexpression is returned.
+
+### Not-followed-by predicate
+```
+(! subexpression)
+```
+Succeeds if subexpression _does not_ succeed and consumes no input.
+When successful, the next sequence item is returned.
+
+## Extended expressions
+For convenience, the standard expressions are extended by the following combination methods:
+
+### Repetition
+```
+(rep 5 subexpression)
+(rep (5) subexpression)
+(rep (2 5) subexpression)
+(rep (2 NIL) subexpression)
+```
+Succeeds, if subexpression matches exactly 5 times, up to 5 times, between 2 and 5 times, or at least 2 times, respectively.
+Returns a list of the successful results.
 
 The following abbreviations are allowed for repetitions:
 
@@ -127,63 +172,30 @@ The following abbreviations are allowed for repetitions:
 | `+`          | `(1 nil)`     | At least once       |
 | `?`          | `(0 1)`       | Zero times or once  |
 
-### Ordered choice
-```
-(or subexpression ...)
-```
-The subexpressions are tried in the given order and the result of the first one that succeeds is returned.
-
 ### Negation
 ```
 (not subexpression)
 ```
 Succeeds, if the subexpression _does not_ succeed.
-When that happens, the rule consumes one item in the sequence and returns it.
+When that happens, the rule consumes _exactly one_ item in the sequence and returns it.
 
-### Greedy repetition
+### Sequence (unordered)
 ```
-(* subexpression)
+(and~ subexpression ...)
 ```
-Tries subexpression consecutively as many times as possible.
-Always succeeds because zero repetitions are allowed.
-Returns a list of the succeeding matches.
+The expression succeeds for a sequence if all subexpressions succeed, in any order.
+It produces a list of the subexpression results (in the order in which they are listed in the rule definition) and consumes whatever the subexpressions consume.
 
-### Greedy positive repetition
+There is a variant of `and~` that is more flexible:
 ```
-(+ subexpression)
+(and~~ (1 2 (1) (2 3) (4 nil) ...) subexpr-1 subexpr-2 subexpr-3 subexpr-4 subexpr-5 ...)
 ```
-Like `(* subexpression)`, but at least one repetition is required.
-
-### Repetition
-```
-(rep 5 subexpression)
-(rep (5) subexpression)
-(rep (2 5) subexpression)
-```
-Succeeds, if subexpression matches exactly 5 times, up to 5 times, or between 2 and 5 times, respectively.
-See the `and~~` nonterminal for a list of abbreviations allowed for expressing repetitions.
-Returns a list of the successful results.
-
-### Optional
-```
-(? subexpression)
-```
-Consumes and returns whatever subexpression consumes if it succeeds.
-If the subexpression fails, no input is consumed and `NIL` returned.
-
-### Followed-by
-```
-(& subexpression)
-```
-Succeeds, if subexpression succeeds, but consumes no input.
-The result of the subexpression is returned.
-
-### Not-followed-by
-```
-(! subexpression)
-```
-Succeeds if subexpression _does not_ succeed and consumes no input.
-The next sequence item is returned if subespression _does not_ match.
+The first argument to `and~~` specifies how may times each subexpression is allowed to be repeated.
+In this example, the first subexpression is required exactly once, the second one exactly twice, the third zero times or once, the fourth between 2 and 3 times and the fifth at least 4 times.
+See the `rep` operator above for a list of abbreviations.
+The result is a list of lists:
+The list is ordered in the same way that subexpressions are given in the rule definition.
+The *n*-th list within the list contains the results of the *n*-th subexpression in the order in which they are found in the parsed expression.
 
 ### Nesting
 ```
@@ -194,7 +206,7 @@ The next sequence item is returned if subespression _does not_ match.
 Succeeds if the current item in the sequence is a list/string/vector and its content matches the subexpression.
 Returns a list enclosing the subexpression result.
 
-Note: In the future, this subexpression result may be returned without the enclosing list.
+Note: In the future, the result may be returned without the enclosing list.
 
 ## Rule arguments
 Often, rules are similar to each other. For example
@@ -204,7 +216,7 @@ Often, rules are similar to each other. For example
 (defrule html-span () <span>")
 ```
 share the same pattern.
-In parseq, this can be generalized with
+In parseq, this can be generalised with
 ```
 (defrule html-tag (name) (and "<" name ">")
 ```
@@ -226,13 +238,13 @@ For example, if you want the resulting list flattened, the rule can be altered t
 ```
 (defrule abcde () (and (and a b) c (and d e)) (:flatten))
 ```
-such that parsing then yields `(a b c d e)`.
+such that parsing `abcde` yields `(a b c d e)` instead of `((a b) c (d e))`.
 
 You can specify how processing of the parsing result is done through multiple options (see below).
 Additional options (such as `:test`) do not affect the parse result, but have other effects.
 Note that the options are processed in sequence and the output of the previous option is input into the next option:
 ```
-(defrule int++ () (and number number) (:lambda (x y) (+ x y)) (:lambda (x) (* x 2)))
+(defrule int+int*2 () (and number number) (:lambda (x y) (+ x y)) (:lambda (x) (* x 2)))
 ```
 This would return `10` when parsing the list `(2 3)`.
 
@@ -295,16 +307,26 @@ If a rule fails because of such an option, the processing of subsequent options 
 ```
 (:test (x) (and (numberp x) (> x 10)))
 ```
-Makes the rule fail if the last form specified in the test fails.
-In this case, the rule fails if the parse result is not an number greater than `10`.
-Note, that the input to the test depends on the preceding processing options.
+Like `:lambda` or `:destructure`, except that the return value of the function body is used as a predicate to determine whether the rule succeeds or not.
+Therefore, if the body of the test returns NIL, the rule fails.
+Otherwise, the unaltered result is returned.
+Note that the input to the test (function arguments) depends on the preceding processing options.
 
-#### Antitest
+In the above example, the rule fails if the parse result is not an number greater than `10`.
+
+The following rule matches any symbol except `baz`:
+```
+(defrule not-baz () symbol (:not (x) (eql x 'baz)))
+```
+This is not possible with `(not 'baz)` because that would allow terminals other than symbols, e.g. `5` (which is not a symbol).
+
+
+#### Reverse test
 ```
 (:not (x) (and (numberp x) (> x 10)))
 ```
 Same as `:test`, but logically inverted.
-In this case, the rule fails _if_ the parse result is an number greater than `10`.
+In this example, the rule fails _if_ the parse result is an number greater than `10`.
 
 ### Variables
 Rules can bind variables that can be accessed/modified by subexpressions.
@@ -315,7 +337,8 @@ Rules can bind variables that can be accessed/modified by subexpressions.
 ```
 Binds the specified variables.
 Subexpressions (and subexpressions of subexpressions, etc) of the rule have access to these variables and can even modify them.
-In order to do this they have to declare them using `:external` (see below).
+In order to access the variables, the subexpressions have to declare them using `:external` (see below).
+If a subexpression binds the same variable with another `:let`, the previous binding is shadowed until the subexpression returns.
 
 #### External bindings
 ```
@@ -323,40 +346,46 @@ In order to do this they have to declare them using `:external` (see below).
 ```
 Declares the specified variables.
 If the rule is called by a superior rule that binds these variables (using `:let`, see above), this rule can use and modify the variables.
+It is an error if a rule using external variables is called when the variables are unbound (i.e. the rule must be called as a subexpression to a rule defining the variables).
 
 ## Using context
-Parse rules in parseq can be made context aware.
-The processing options `:test` and `:not` control, whether a parse result is accepted or not.
-For instance, the following rule matches any symbol except `baz`:
-```
-(defrule no-baz () symbol (:not (x) (eql x 'baz)))
-```
-The tests can be as complex as needed.
+Parsing in parseq can be made context aware using two methods.
 
-In order to make one rule affect another rule, variable bindings can be used.
-Suppose the binary format of a file specifies that a string is stored as a byte indicating the length of the string followed by the string characters.
-A set of rules to parse this would be:
+### Context through tests
+A single rule can verify one part of its result against another.
+For instance, if a tag is a name followed by a type and a value, then the rule
 ```
-(defrule string () (and byte length) (:let len))
+(defrule tag () (and string symbol form) (:test (name type value) (eql (type-of value) type)))
+```
+will check whether the value is indeed of the specified type. Otherwise the rule will fail.
+
+### Context through variables
+It is possible to make rules depend on the results of other rules.
+This can be achieved through external variable bindings that are introduced with `(:let ...)` and used with `(:external ...)`.
+
+Suppose the binary format of a file specifies that a string is stored as a byte indicating the length of the string followed by that number of characters.
+A set of rules for parsing this could be:
+```
+(defrule string () (and length chars) (:let len))
 (defrule length () byte (:external len) (:lambda (x) (setf len x)))
 (defrule chars () (rep len byte) (:external len))
 ```
-If a subexpression binds the same variable with another `:let`, the previous binding is shadowed until the subexpression is returns.
+External variables can also be used from within `(:test ...)` or `(:not ...)`.
 
 ## Rule tracing
 Rules can be traced by calling
 ```
-(trace-rule 'rule-name)
+(trace-rule 'nonterminal-symbol)
 ```
 which will print the information to standard output.
-If the keyword argument `:recursive` is set to `t`, all rules called within the given rule will be traced as well.
+If the keyword argument `:recursive` is set to `t`, all rules called from within the given rule will be traced as well.
 Tracing can be turned off by calling
 ```
-(untrace-rule 'rule-name)
+(untrace-rule 'nonterminal-symbol)
 ```
 
 ## Namespaces
-You can use local namespaces for rule names:
+You can use local namespaces for nonterminal symbols:
 ```
 (with-local-rules
   (defrule ...)
@@ -385,7 +414,8 @@ These features _may_ be implemented in the future:
  * Short forms for combined nonterminals, e.g.
    * `(? (and ...))`
    * `(? (or ...))`
- * Destructuring of rule arguments
+ * Destructuring of rule arguments to allow nesting and `&key`, `&rest`, `&optional` etc.
+ * Enable packrat parsing
  * Support for streams
  * Custom terminals
  * Custom non-terminals
