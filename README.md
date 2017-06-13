@@ -427,7 +427,7 @@ Please heed the following warnings:
  * The interface and behaviour of parseq are not yet frozen.
    New versions may break programs using the package.
    If you intend to use the package, please let me know so I can inform you of any changes.
- * The package should work with SBCL, CMUCL and ECL. Other lisp implementations are untested.
+ * The package should work with SBCL, CMUCL, ECL and CLISP. Other lisp implementations are untested.
  * Parseq comes with no warranty whatsoever.
 
 ## Licence
