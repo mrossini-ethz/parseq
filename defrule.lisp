@@ -5,6 +5,12 @@
 ;; it can be shadowed. This is used in the macro with-local-rules.
 (defparameter *rule-table* (make-hash-table))
 
+;; Hash table that will be set up each time (parseq ...) is called
+;; (if enabled). Each parse function that is called can store its
+;; memoizing table there. This way, the memoizing tables are reset
+;; each time (parseq ...) is called.
+(defparameter *packrat-table* nil)
+
 ;; List of terminals that have already failed at a given position in the
 ;; sequence. This is used for error reporting. The variable ist rebound
 ;; in each call of (parseq ...). It will later contain the value
@@ -12,12 +18,12 @@
 ;; in the sequence where parsing failed.
 (defvar *terminal-failure-list* nil)
 
-(defun parseq (rule sequence &key (start 0) end junk-allowed parse-error)
+(defun parseq (rule sequence &key (start 0) end junk-allowed parse-error packrat)
   ;; Parses sequence according to the given rule. A subsequence
   ;; can be parsed by passing the start and/or end arguments.
   ;; The parse does fails if the end of the sequence is not reached
   ;; unless junk-allowed is given.
-  (let ((pos (make-treepos start)) (*terminal-failure-list* (cons (make-treepos) nil)))
+  (let ((pos (make-treepos start)) (*terminal-failure-list* (cons (make-treepos) nil)) (*packrat-table* (if packrat (make-hash-table))))
     ;; Attempt the parse
     (multiple-value-bind (result success newpos) (parseq-internal rule sequence pos)
       ;; Check for success and sequence bounds and return success or failure
@@ -570,6 +576,37 @@
        ;; Make sure the position is popped from the stack /always/.
        (pop ,stack))))
 
+;; Packrat --------------------------------------------------------------------
+
+(defmacro with-hash-place ((place key hash-table) &body body)
+  `(symbol-macrolet ((,place (gethash ,key ,hash-table))) ,@body))
+
+(defmacro if-hash ((var key hash-table &key place) then &optional else)
+  (with-gensyms (value found)
+    `(,@(if place `(with-hash-place (,var ,key ,hash-table)) (list 'progn))
+        (multiple-value-bind (,(if place value var) ,found) ,(if place var `(gethash ,key ,hash-table))
+          ,(if place `(declare (ignore ,value)))
+          (if ,found ,then ,else)))))
+
+(defmacro with-packrat ((name pos lambda-list) &body body)
+  (with-gensyms (blockname memo-table values)
+    `(block ,blockname
+       ;; Is packrat parsing enabled?
+       (when *packrat-table*
+         ;; Are any values already stored for the current function?
+         (if-hash (,memo-table ',name *packrat-table* :place t)
+                  ;; Values already stored. Check whether the current function call is memoized.
+                  (if-hash (,values (list ,pos ,lambda-list) ,memo-table)
+                           (progn (format t "memo~%")
+                           (return-from ,blockname (apply #'values ,values))))
+                  ;; No values stored, create hash table
+                  (setf ,memo-table (make-hash-table :test 'equal))))
+       ;; Run the body
+       (let ((,values (multiple-value-list (progn ,@body))))
+         (when *packrat-table*
+           (setf (gethash (list ,pos ,lambda-list) (gethash ',name *packrat-table*)) ,values))
+         (apply #'values ,values)))))
+
 ;; defrule macro --------------------------------------------------------------
 
 (defmacro defrule (name lambda-list expr &body options)
@@ -600,7 +637,7 @@
                          ;; Expand the rule into code that parses the sequence
                          (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
                            ;; Process the result
-                           (multiple-value-bind (,result ,success) ,(expand-processing-options result processing-options)
+                           (multiple-value-bind (,result ,success) (with-packrat (,name ,pos ,lambda-list) ,(expand-processing-options result processing-options))
                              ;; Processing of (:test ...) and (:not ...) options may make the parse fail
                              (if ,success
                                  ;; Return the processed parsing result, the success and the new position
