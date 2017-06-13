@@ -3,9 +3,10 @@
   :version "0.2"
   :author "Marco Rossini"
   :license "GPLv2"
+  :serial t
   :components ((:file "package")
-               (:file "utils" :depends-on ("package"))
-               (:file "defrule" :depends-on ("package" "utils")))
+               (:file "utils")
+               (:file "defrule"))
   :in-order-to ((test-op (test-op :parseq-test))))
 
 (defsystem "parseq-test"
@@ -13,8 +14,9 @@
   :author "Marco Rossini"
   :license "GPLv2"
   :depends-on (:parseq)
+  :serial t
   :components ((:file "test/unit-test")
-               (:file "test/test" :depends-on ("test/unit-test"))))
+               (:file "test/test")))
 
 (defmethod perform ((operation test-op) (system (eql (find-system :parseq-test))))
   (funcall (intern "PARSEQ-TEST" :parseq)))
