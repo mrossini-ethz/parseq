@@ -7,7 +7,7 @@ then
 	exit 1
 fi
 
-if [[ "$1" == "sbcl" || "$1" == "all" ]]
+if [[ "$1" == "sbcl" ]] || ([[ "$1" == "all" ]] && which sbcl)
 then
 	sbcl	--noinform \
 		--disable-ldb \
@@ -22,7 +22,7 @@ then
 		--end-toplevel-options
 fi
 
-if [[ "$1" == "cmucl" || "$1" == "all" ]]
+if [[ "$1" == "cmucl" ]] || ([[ "$1" == "all" ]] && which lisp)
 then
 	lisp	-batch \
 		-eval '(require :asdf)' \
@@ -30,7 +30,7 @@ then
 		-eval '(quit)'
 fi
 
-if [[ "$1" == "ecl" || "$1" == "all" ]]
+if [[ "$1" == "ecl" ]] || ([[ "$1" == "all" ]] && which ecl)
 then
 	ecl	-q \
 		-eval '(require :asdf)' \
@@ -38,7 +38,7 @@ then
 		-eval '(quit)'
 fi
 
-if [[ "$1" == "clisp" || "$1" == "all" ]]
+if [[ "$1" == "clisp" ]] || ([[ "$1" == "all" ]] && which clisp)
 then
 	clisp	-q \
 		-x '(require :asdf)' \
