@@ -5,7 +5,7 @@ Parseq (pronounced [parsec](https://en.wikipedia.org/wiki/Parsec)) is a parsing 
 It can be used for parsing lisp's sequences types: strings, binary data, lists and vectors.
 Furthermore, parseq is able to parse nested structures such as trees (e.g. lists of lists, lists of vectors, 1D arrays of strings).
 Parseq uses [parsing expression grammars](https://en.wikipedia.org/wiki/Parsing_expression_grammar) (PEG) that can be defined through a simple interface.
-This PEG can be parametrised and made context aware.
+This PEG can be parameterised and made context aware.
 Additionally, the parsing tree can be transformed arbitrarily.
 
 The library is inspired by [Esrap](https://nikodemus.github.io/esrap/) and uses a very similar interface.
@@ -18,7 +18,7 @@ This means that some features are not yet implemented and that the interface and
 See the warnings below.
 
 ### Features
-Parseq provides the follwing features:
+Parseq provides the following features:
 
  * Parses strings, binary data, vectors and lists
  * Allows parsing of sequences within sequences (e.g. trees, strings within lists, ...)
@@ -30,7 +30,7 @@ Parseq provides the follwing features:
  * Grammars can be made context aware:
    * Run parse results through lisp code for verification
    * Share data between parse rules
- * Parsing rules can be parametrised
+ * Parsing rules can be parameterised
  * Uses separate namespace(s) for parse rules
  * Tracing of grammar rules
 
@@ -112,9 +112,9 @@ On success, the amount of input consumed is determined by the subexpressions.
 (or subexpression ...)
 ```
 The subexpressions are tried in the given order and the result of the first one that succeeds is accepted.
-It produces the result of the succeding subexpression.
+It produces the result of the succeeding subexpression.
 The amount of input consumed depends on the subexpression.
-If none of the subexpressions matches, the expression fails.
+If none of the subexpressions match, the expression fails.
 
 ### Greedy repetition
 ```
@@ -297,7 +297,7 @@ Flattens the parsing result, i.e. `(a (b c (d) e) (f g))` becomes `(a b c d e f 
 (:string)
 ```
 Flattens the parsing result and concatenates the list items to into a string, i.e. `(#\a ("bc" (#\d) 'e) (#\f #x67))` becomes `"abcdEfg"`.
-The items that can be concatentated are strings, characters, unsigned bytes and symbols.
+The items that can be concatenated are strings, characters, unsigned bytes and symbols.
 
 #### Vector
 ```
