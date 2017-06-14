@@ -1,19 +1,20 @@
 # PARSEQ
 
 ## Description
-Parseq (pronounced [parsec](https://en.wikipedia.org/wiki/Parsec)) is a package for common lisp.
+Parseq (pronounced [parsec](https://en.wikipedia.org/wiki/Parsec)) is a parsing library for common lisp.
 It can be used for parsing lisp's sequences types: strings, binary data, lists and vectors.
-Furthermore, parseq is able to parse nested structures such as trees (lists of lists).
+Furthermore, parseq is able to parse nested structures such as trees (e.g. lists of lists, lists of vectors, 1D arrays of strings).
 Parseq uses [parsing expression grammars](https://en.wikipedia.org/wiki/Parsing_expression_grammar) (PEG) that can be defined through a simple interface.
-It allows the grammar rules to be parametrised.
-Additionally, the parsing result can be transformed and the grammar made context aware.
+This PEG can be parametrised and made context aware.
+Additionally, the parsing tree can be transformed arbitrarily.
 
-The package is inspired by [Esrap](https://nikodemus.github.io/esrap/) and uses a very similar interface.
+The library is inspired by [Esrap](https://nikodemus.github.io/esrap/) and uses a very similar interface.
 No code is shared between the two projects, however.
 The features of Esrap are are mostly included in parseq and complemented with additional, orthogonal features.
 Any resemblance to [esrap-liquid](https://github.com/mabragor/esrap-liquid) is merely coincidental.
 
-The package is still under development. This means that some features are not yet implemented and that the interface and behaviour may change in the future.
+The library is still under development.
+This means that some features are not yet implemented and that the interface and behaviour may change in the future.
 See the warnings below.
 
 ### Features
@@ -22,9 +23,10 @@ Parseq provides the follwing features:
  * Parses strings, binary data, vectors and lists
  * Allows parsing of sequences within sequences (e.g. trees, strings within lists, ...)
  * Simple interface, very similar to [Esrap](https://nikodemus.github.io/esrap/)
- * Provides many specific and non-specific terminals
- * Implements the standard PEG expressions and includes useful extensions
- * Parse results can be transformed during parsing
+ * Provides many specific and non-specific terminal symbols
+ * Implements the standard PEG expressions as well as useful extensions
+ * Parsing expression rules are compiled
+ * Parse trees can be transformed during parsing
  * Grammars can be made context aware:
    * Run parse results through lisp code for verification
    * Share data between parse rules
@@ -40,10 +42,10 @@ First, define a set of grammar rules:
 (defrule bar () 'bar)
 (defrule foobar () (and foo bar))
 ```
-The first argument to `defrule` is the nonterminal symbol that the rule represents.
+The first argument to `(defrule ...)` is the nonterminal symbol that the rule represents.
 These symbols use a different namespace from everything else.
 The second argument is a list of arguments that the rule takes (none in this example).
-The third argument specifies how the nonterminal symbol should be parsed.
+The third argument specifies the definition of the nonterminal symbol.
 In this example, the nonterminal `foo` requires the parsing of the lisp symbol `foo`.
 The rule `foobar` combines the two rules `foo` and `bar` to match the list `(foo bar)`, the vector `#(foo bar)` or the string `"FOOBAR"`.
 The above example could alternatively be stated as
@@ -54,18 +56,19 @@ thus not requiring the rules `foo` and `bar`.
 
 Parsing is initiated by calling
 ```
-(parseq 'foobar '(foo bar))
+(parseq 'foobar sequence)
 ```
-which will return the list `(foo bar)` as well as `T` for success.
-If the parse is not successful, `NIL` is returned.
-The first argument is a nonterminal symbol defined through `defrule`.
+which will return the list `(foo bar)` as well as `T` if `sequence` is one of `(foo bar)`, `#(foo bar)` and `"FOOBAR"`.
+If parsing is not successful, `NIL` is returned.
+The first argument to `(parseq ...)` is a nonterminal symbol defined through `defrule`.
+Note that the symbol must be quoted.
 The second argument is the sequence that should be parsed.
 
-This concludes the basic usage of the package. Almost everything is done through `defrule` and `parseq`.
+This concludes the basic usage of the library. Almost everything is done through `defrule` and `parseq`.
 There are some extra arguments, however, that are explained below.
 
 ## Terminals
-Terminals are the objects that actually appear in the parsed sequence.
+Terminals (tokens) are the objects that actually appear in the parsed sequence.
 The following types are item classes:
 
  * `symbol` stands for any lisp symbol
@@ -109,16 +112,17 @@ On success, the amount of input consumed is determined by the subexpressions.
 (or subexpression ...)
 ```
 The subexpressions are tried in the given order and the result of the first one that succeeds is accepted.
-It produces the result of the succeding subexpression or `NIL` if none match.
+It produces the result of the succeding subexpression.
 The amount of input consumed depends on the subexpression.
+If none of the subexpressions matches, the expression fails.
 
 ### Greedy repetition
 ```
 (* subexpression)
 ```
 Tries subexpression consecutively as many times as possible.
-Always succeeds because zero repetitions are allowed.
-Returns a list of the succeeding matches.
+This expression always succeeds because zero repetitions are allowed.
+A list of the succeeding matches is returned.
 The amount of input consumed depends on the subexpression and the number of times it matches.
 
 ### Greedy positive repetition
@@ -146,7 +150,8 @@ The result of the subexpression is returned.
 ```
 (! subexpression)
 ```
-Succeeds if subexpression _does not_ succeed and consumes no input.
+Succeeds if subexpression _does not_ succeed.
+This expression consumes no input.
 When successful, the next sequence item is returned.
 
 ## Extended expressions
@@ -155,7 +160,7 @@ For convenience, the standard expressions are extended by the following combinat
 ### Repetition
 ```
 (rep 5 subexpression)
-(rep (5) subexpression)
+(rep (0 5) subexpression)
 (rep (2 5) subexpression)
 (rep (2 NIL) subexpression)
 ```
@@ -168,8 +173,8 @@ The following abbreviations are allowed for repetitions:
 | ------------ |:-------------:| ------------------- |
 | `3`          | `(3 3)`       | Exactly 3 times     |
 | `(3)`        | `(0 3)`       | Up to 3 times       |
-| `*`          | `(0 nil)`     | Any number of times |
-| `+`          | `(1 nil)`     | At least once       |
+| `*`          | `(0 NIL)`     | Any number of times |
+| `+`          | `(1 NIL)`     | At least once       |
 | `?`          | `(0 1)`       | Zero times or once  |
 
 ### Negation
@@ -184,7 +189,8 @@ When that happens, the rule consumes _exactly one_ item in the sequence and retu
 (and~ subexpression ...)
 ```
 The expression succeeds for a sequence if all subexpressions succeed, in any order.
-It produces a list of the subexpression results (in the order in which they are listed in the rule definition) and consumes whatever the subexpressions consume.
+Note that the first subexpression in the list that matches a sequence item will be used.
+The expression produces a list of the subexpression results (in the order in which they are listed in the rule definition) and consumes whatever the subexpressions consume.
 
 There is a variant of `and~` that is more flexible:
 ```
@@ -223,7 +229,7 @@ In parseq, this can be generalised with
 and called through `(html-tag "a")` instead of having to define each rule separately.
 It is possible to pass multiple arguments.
 The arguments can also be used in the parse options (see below).
-The lambda list of arguments specified in `defrule` may be destructured in the future.
+The lambda list of arguments specified in `defrule` may be used for destructuring in the future.
 
 ## Processing options
 The result from a parsing rule can be processed.
@@ -238,15 +244,15 @@ For example, if you want the resulting list flattened, the rule can be altered t
 ```
 (defrule abcde () (and (and a b) c (and d e)) (:flatten))
 ```
-such that parsing `abcde` yields `(a b c d e)` instead of `((a b) c (d e))`.
+such that parsing `(a b c d e)` yields `(a b c d e)` instead of `((a b) c (d e))`.
 
 You can specify how processing of the parsing result is done through multiple options (see below).
 Additional options (such as `:test`) do not affect the parse result, but have other effects.
 Note that the options are processed in sequence and the output of the previous option is input into the next option:
 ```
-(defrule int+int*2 () (and number number) (:lambda (x y) (+ x y)) (:lambda (x) (* x 2)))
+(defrule int+int^2 () (and number number) (:lambda (x y) (+ x y)) (:lambda (x) (expt x 2)))
 ```
-This would return `10` when parsing the list `(2 3)`.
+This would return `25` when parsing the list `(2 3)`.
 
 ### Transformation of parse results
 
@@ -268,9 +274,9 @@ Note that `:lambda` and `:destructure` are actually synonyms.
 
 #### Function
 ```
-(:function func)
+(:function #'+)
 ```
-The parsing result is handed over to the function specified (here: `func`).
+The parsing result is handed over to the function specified (here: `+`).
 Note that the lambda list of the given function has to match the number of items in the parsing result.
 The new parsing result is whatever the function returns.
 
@@ -291,7 +297,7 @@ Flattens the parsing result, i.e. `(a (b c (d) e) (f g))` becomes `(a b c d e f 
 (:string)
 ```
 Flattens the parsing result and concatenates the list items to into a string, i.e. `(#\a ("bc" (#\d) 'e) (#\f #x67))` becomes `"abcdEfg"`.
-The list items that can be concatentated are strings, characters, unsigned bytes and symbols.
+The items that can be concatentated are strings, characters, unsigned bytes and symbols.
 
 #### Vector
 ```
@@ -320,7 +326,6 @@ The following rule matches any symbol except `baz`:
 ```
 This is not possible with `(not 'baz)` because that would allow terminals other than symbols, e.g. `5` (which is not a symbol).
 
-
 #### Reverse test
 ```
 (:not (x) (and (numberp x) (> x 10)))
@@ -335,10 +340,11 @@ Rules can bind variables that can be accessed/modified by subexpressions.
 ```
 (:let a b (c 10))
 ```
-Binds the specified variables.
+Binds the specified variables (dynamically).
 Subexpressions (and subexpressions of subexpressions, etc) of the rule have access to these variables and can even modify them.
 In order to access the variables, the subexpressions have to declare them using `:external` (see below).
 If a subexpression binds the same variable with another `:let`, the previous binding is shadowed until the subexpression returns.
+For an example of variable usage, see the section 'Using context' below.
 
 #### External bindings
 ```
@@ -370,7 +376,7 @@ A set of rules for parsing this could be:
 (defrule length () byte (:external len) (:lambda (x) (setf len x)))
 (defrule chars () (rep len byte) (:external len))
 ```
-External variables can also be used from within `(:test ...)` or `(:not ...)`.
+External variables can also be used from within `(:test ...)` or `(:not ...)` or even the parse expression.
 
 ## Rule tracing
 Rules can be traced by calling
@@ -411,23 +417,26 @@ The rules from outside are saved before entering the body and restored when the 
 ## Upcoming features
 These features _may_ be implemented in the future:
 
+ * Enable (optional?) packrat parsing (a working implementation already exists)
  * Short forms for combined nonterminals, e.g.
    * `(? (and ...))`
    * `(? (or ...))`
+   or multiple arguments to `(? ...)` signifying either a sequence or a choice.
+ * Non-greedy expressions
  * Destructuring of rule arguments to allow nesting and `&key`, `&rest`, `&optional` etc.
- * Enable packrat parsing
- * Support for streams
+ * Support for streams (how?)
+ * Speed and efficiency
  * Custom terminals
- * Custom non-terminals
+ * Custom non-terminal expressions
  * Custom sequences, i.e. parse _anything_
 
 ## Warnings
 Please heed the following warnings:
 
  * The interface and behaviour of parseq are not yet frozen.
-   New versions may break programs using the package.
-   If you intend to use the package, please let me know so I can inform you of any changes.
- * The package should work with SBCL, CMUCL, ECL and CLISP. Other lisp implementations are untested.
+   New versions may break programs using the library.
+ * The library should work with SBCL, CMUCL, ECL and CLISP.
+   Other lisp implementations are untested.
  * Parseq comes with no warranty whatsoever.
 
 ## Licence
@@ -441,8 +450,8 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+You can also find the full licence [online](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html).
+
 ## Questions/Bugs/Help/Requests/Feedback etc.
 
 If you have questions regarding parseq, found any bugs, would like to offer help, have a feature request, give feedback etc., feel free to contact me through GitHub.
-
-You can find the full licence [here](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html).
