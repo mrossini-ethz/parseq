@@ -588,7 +588,7 @@
           ,(if place `(declare (ignore ,value)))
           (if ,found ,then ,else)))))
 
-(defmacro with-packrat ((name pos lambda-list) &body body)
+(defmacro with-packrat ((name pos lambda-list external-bindings) &body body)
   (with-gensyms (blockname memo-table values)
     `(block ,blockname
        ;; Is packrat parsing enabled?
@@ -596,15 +596,16 @@
          ;; Are any values already stored for the current function?
          (if-hash (,memo-table ',name *packrat-table* :place t)
                   ;; Values already stored. Check whether the current function call is memoized.
-                  (if-hash (,values (list ,pos ,lambda-list) ,memo-table)
-                           (progn (format t "memo~%")
-                           (return-from ,blockname (apply #'values ,values))))
+                  (if-hash (,values (list ,pos (list ,@lambda-list) (list ,@external-bindings)) ,memo-table)
+                           (return-from ,blockname (apply #'values ,values)))
                   ;; No values stored, create hash table
                   (setf ,memo-table (make-hash-table :test 'equal))))
-       ;; Run the body
+       ;; Run the body, results in a list
        (let ((,values (multiple-value-list (progn ,@body))))
+         ;; Store the results in the packrat table, if necessary
          (when *packrat-table*
-           (setf (gethash (list ,pos ,lambda-list) (gethash ',name *packrat-table*)) ,values))
+           (setf (gethash (list ,pos (list ,@lambda-list) (list ,@external-bindings)) (gethash ',name *packrat-table*)) ,values))
+         ;; Return the results again as multiple values
          (apply #'values ,values)))))
 
 ;; defrule macro --------------------------------------------------------------
@@ -637,7 +638,7 @@
                          ;; Expand the rule into code that parses the sequence
                          (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
                            ;; Process the result
-                           (multiple-value-bind (,result ,success) (with-packrat (,name ,pos ,lambda-list) ,(expand-processing-options result processing-options))
+                           (multiple-value-bind (,result ,success) (with-packrat (,name ,pos ,lambda-list ,externals) ,(expand-processing-options result processing-options))
                              ;; Processing of (:test ...) and (:not ...) options may make the parse fail
                              (if ,success
                                  ;; Return the processed parsing result, the success and the new position
