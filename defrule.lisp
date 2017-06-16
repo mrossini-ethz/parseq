@@ -594,7 +594,7 @@
        (let ((,values (multiple-value-list (progn ,@body))))
          ;; Store the results in the packrat table, if necessary
          (when *packrat-table*
-           (setf (gethash (list ,pos (list ,@lambda-list) (list ,@external-bindings)) (gethash ',name *packrat-table*)) ,values))
+           (setf (gethash (list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) (gethash ',name *packrat-table*)) ,values))
          ;; Return the results again as multiple values
          (apply #'values ,values)))))
 

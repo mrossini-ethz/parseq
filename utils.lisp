@@ -243,6 +243,16 @@
 (defun treepos-str (treepos)
   (format nil "~{~d~^:~}" (loop for idx across treepos collect idx)))
 
+;; Lambda list
+
+(defun lambda-list-vars (lambda-list)
+  (loop for def in lambda-list unless (find def '(&optional &rest &key &allow-other-keys &aux)) collect
+       (if (consp def)
+           (if (consp (car def))
+               (cadar def)
+               (car def))
+           def)))
+
 ;; Hash table functions
 
 (defun copy-hash-table (hash-table)
