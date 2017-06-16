@@ -192,13 +192,30 @@ The expression succeeds for a sequence if all subexpressions succeed, in any ord
 Note that the first subexpression in the list that matches a sequence item will be used.
 The expression produces a list of the subexpression results (in the order in which they are listed in the rule definition) and consumes whatever the subexpressions consume.
 
+An expression like `(and~ 'a 'b 'c 'd)` is actually equivalent to
+```
+(or (and 'a (or (and 'b (or (and 'c 'd) (and 'd 'c)))
+                (and 'c (or (and 'b 'd) (and 'd 'b)))
+                (and 'd (or (and 'b 'c) (and 'c 'b)))))
+    (and 'b (or (and 'a (or (and 'c 'd) (and 'd 'c)))
+                (and 'c (or (and 'a 'd) (and 'd 'a)))
+                (and 'd (or (and 'a 'c) (and 'c 'a)))))
+    (and 'c (or (and 'a (or (and 'b 'd) (and 'd 'b)))
+                (and 'b (or (and 'a 'd) (and 'd 'a)))
+                (and 'd (or (and 'a 'b) (and 'b 'a)))))
+    (and 'd (or (and 'a (or (and 'b 'c) (and 'c 'b)))
+                (and 'b (or (and 'a 'c) (and 'c 'a)))
+                (and 'c (or (and 'a 'b) (and 'b 'a))))))
+```
+
 There is a variant of `and~` that is more flexible:
 ```
 (and~~ (1 2 (1) (2 3) (4 nil) ...) subexpr-1 subexpr-2 subexpr-3 subexpr-4 subexpr-5 ...)
 ```
 The first argument to `and~~` specifies how may times each subexpression is allowed to be repeated.
+(See the `rep` operator above for a list of abbreviations.)
 In this example, the first subexpression is required exactly once, the second one exactly twice, the third zero times or once, the fourth between 2 and 3 times and the fifth at least 4 times.
-See the `rep` operator above for a list of abbreviations.
+During parsing, the prioritisation of the subexpressions that are still applicable is from left to right.
 The result is a list of lists:
 The list is ordered in the same way that subexpressions are given in the rule definition.
 The *n*-th list within the list contains the results of the *n*-th subexpression in the order in which they are found in the parsed expression.
@@ -427,9 +444,41 @@ These features _may_ be implemented in the future:
  * Non-greedy expressions
  * Support for streams (how?)
  * Speed and efficiency
+ * Enable rules to remember their parsing expression
+ * Errors and conditions
+ * Parse error reporting
  * Custom terminals
  * Custom non-terminal expressions
  * Custom sequences, i.e. parse _anything_
+
+## Packrat parsing?
+At present, parseq is implemented as a recursive-descent parser.
+These types of parsers take exponential time in the worst case.
+To avoid this, [packrat parsing](https://pdos.csail.mit.edu/~baford/packrat/thesis/) can be employed to guarantee linear time.
+However, this happens at the cost of memory consumption (proportional to input size).
+
+### Why is parseq not implemented as a packrat parser?
+A packrat parser normally stores the position and the result of a parsing expression to look it up when needed to avoid re-evaluating the expression.
+
+Problems with _any_ packrat parser:
+
+ * The parsing result may be a large tree or other structure. The data in that tree would have to be stored repeatedly.
+ * The trees would have to be copied for storage.
+
+Problems with using a packrat parser in parseq:
+
+ * Parseq uses more than a pointer into the sequence, because it allows parsing of trees. Therefore a tree pointer would have to be stored.
+ * Parsing expressions in parseq can have arguments. Therefore, the arguments to the expressions need to be stored as well
+   because they affect the behaviour or the result of the expression.
+ * Variables declared with (:external ...) may also affect the result of the expression, therefore these variables have to be stored too.
+
+This means a lot of data that needs to be stored, even if the amount is proportional to the input size.
+The question is: is it worth it? Are cases where exponential time is required frequent? Can't they be avoided by improving the parsing grammar
+expressions?
+
+An experimental version of parseq with _optional_ packrat parsing actually exists.
+If you think that this feature is absolutely necessary, feel free to contact me.
+You may be given a load of work to verify the implementation correctness and to benchmark it.
 
 ## Warnings
 Please heed the following warnings:
