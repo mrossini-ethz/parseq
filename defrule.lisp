@@ -578,25 +578,15 @@
 
 ;; Packrat --------------------------------------------------------------------
 
-(defmacro with-hash-place ((place key hash-table) &body body)
-  `(symbol-macrolet ((,place (gethash ,key ,hash-table))) ,@body))
-
-(defmacro if-hash ((var key hash-table &key place) then &optional else)
-  (with-gensyms (value found)
-    `(,@(if place `(with-hash-place (,var ,key ,hash-table)) (list 'progn))
-        (multiple-value-bind (,(if place value var) ,found) ,(if place var `(gethash ,key ,hash-table))
-          ,(if place `(declare (ignore ,value)))
-          (if ,found ,then ,else)))))
-
 (defmacro with-packrat ((name pos lambda-list external-bindings) &body body)
   (with-gensyms (blockname memo-table values)
     `(block ,blockname
        ;; Is packrat parsing enabled?
        (when *packrat-table*
          ;; Are any values already stored for the current function?
-         (if-hash (,memo-table ',name *packrat-table* :place t)
+         (if-hash (',name *packrat-table* :var ,memo-table :place t)
                   ;; Values already stored. Check whether the current function call is memoized.
-                  (if-hash (,values (list ,pos (list ,@lambda-list) (list ,@external-bindings)) ,memo-table)
+                  (if-hash ((list ,pos (list ,@lambda-list) (list ,@external-bindings)) ,memo-table :var ,values)
                            (return-from ,blockname (apply #'values ,values)))
                   ;; No values stored, create hash table
                   (setf ,memo-table (make-hash-table :test 'equal))))
