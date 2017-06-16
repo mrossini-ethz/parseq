@@ -49,6 +49,9 @@
 (defrule parameter-slist-user (z) (parameter-slist 'a (parameter-slist-user-sep z)))
 (defrule parameter-slist-user-user () (parameter-slist-user 'c))
 (defrule parameter-constant (x) 'a (:constant x))
+(defrule parameter-optional (&optional (x 5 x-p)) 'a (:constant (list x x-p)))
+(defrule parameter-keyword (&key ((:x xx) 5 x-p)) 'a (:constant (list xx x-p)))
+(defrule parameter-rest (&rest x) 'a (:constant x))
 
 (defrule option-constant () (and 'a 'b 'c) (:constant 4))
 (defrule option-lambda () (and 'a 'b 'c) (:lambda (x y z) (list z y x)))
@@ -473,6 +476,19 @@
     (test-parseq '(parameter-slist-user-user) '(a b a c a b a) t '(a ((b a) (c a) (b a))) nil)
     ;; 'a (:constant x)
     (test-parseq '(parameter-constant b) '(a) t 'b)))
+    ;; Optional parameter
+    (test-parseq 'parameter-optional '(a) t '(5 nil))
+    (test-parseq '(parameter-optional) '(a) t '(5 nil))
+    (test-parseq '(parameter-optional 1) '(a) t '(1 t))
+    ;; Keyword parameter
+    (test-parseq 'parameter-keyword '(a) t '(5 nil))
+    (test-parseq '(parameter-keyword) '(a) t '(5 nil))
+    (test-parseq '(parameter-keyword :x 1) '(a) t '(1 t))
+    ;; Rest parameter
+    (test-parseq 'parameter-rest '(a) t '())
+    (test-parseq '(parameter-rest) '(a) t '())
+    (test-parseq '(parameter-rest 1) '(a) t '(1))
+    (test-parseq '(parameter-rest 1 2) '(a) t '(1 2))
 
 (define-test option-test ()
   (check

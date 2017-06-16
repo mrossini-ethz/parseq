@@ -226,10 +226,12 @@ In parseq, this can be generalised with
 ```
 (defrule html-tag (name) (and "<" name ">")
 ```
-and called through `(html-tag "a")` instead of having to define each rule separately.
-It is possible to pass multiple arguments.
+and used in parsing expressions as `(html-tag "a")` instead of having to define each rule separately.
 The arguments can also be used in the parse options (see below).
-The lambda list of arguments specified in `defrule` may be used for destructuring in the future.
+Note, however, that since the rule argument is unknown at compile time, a runtime dispatch will need to be performed on the argument type.
+
+It is possible to pass multiple arguments, keywords etc.
+The full syntax of lambda lists is allowed.
 
 ## Processing options
 The result from a parsing rule can be processed.
@@ -423,7 +425,6 @@ These features _may_ be implemented in the future:
    * `(? (or ...))`
    or multiple arguments to `(? ...)` signifying either a sequence or a choice.
  * Non-greedy expressions
- * Destructuring of rule arguments to allow nesting and `&key`, `&rest`, `&optional` etc.
  * Support for streams (how?)
  * Speed and efficiency
  * Custom terminals
