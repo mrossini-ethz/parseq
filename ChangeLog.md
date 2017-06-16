@@ -8,11 +8,13 @@ Parseq uses [semantic versioning](http://semver.org/).
 
   * Repetitions in `(rep ...)` and `(and~~ ...)` are now allowed to be specified as `*` for `(0 nil)`, `+` for `(1 nil)` and `?` for `(0 1)`.
   * Now allowing unsigned bytes to be converted to strings by the `:string` processing option.
+  * Rule names are now allowed as rule arguments.
 
 ### Bugfixes
 
   * The `:flatten`, `:string` and `:vector` processing options are now correctly applied to the result of the previous processing option rather than directly to the parse result.
   * Open ended repetitions in `(and~~ ...)` used to fail. Fixed.
+  * Fixed a bug in the runtime dispatch of parse rules.
 
 ## Version 0.2.0 - 2016-09-17
 
