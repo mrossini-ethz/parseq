@@ -453,28 +453,32 @@ These features _may_ be implemented in the future:
 
 ## Packrat parsing?
 At present, parseq is implemented as a recursive-descent parser.
-These types of parsers take exponential time in the worst case.
+In the worst case, these types of parsers have exponential execution time.
 To avoid this, [packrat parsing](https://pdos.csail.mit.edu/~baford/packrat/thesis/) can be employed to guarantee linear time.
-However, this happens at the cost of memory consumption (proportional to input size).
+However, this happens at the cost of memory consumption (proportional to input size) and some computational overhead.
 
 ### Why is parseq not implemented as a packrat parser?
-A packrat parser normally stores the position and the result of a parsing expression to look it up when needed to avoid re-evaluating the expression.
+A packrat parser normally stores the position (key) and the result (value) of a parsing expression to look it up when needed to avoid re-evaluating the expression.
 
-Problems with _any_ packrat parser:
+Challenges with _any_ packrat parser:
 
- * The parsing result may be a large tree or other structure. The data in that tree would have to be stored repeatedly.
- * The trees would have to be copied for storage.
+ * The parsing result may be a large tree or other structure.
+ * The trees would have to be copied for storage (unless the code is fully functional).
+ * Side effects of parsing expressions will break.
 
-Problems with using a packrat parser in parseq:
+Additional challenges making parseq a packrat parser:
 
- * Parseq uses more than a pointer into the sequence, because it allows parsing of trees. Therefore a tree pointer would have to be stored.
- * Parsing expressions in parseq can have arguments. Therefore, the arguments to the expressions need to be stored as well
-   because they affect the behaviour or the result of the expression.
- * Variables declared with (:external ...) may also affect the result of the expression, therefore these variables have to be stored too.
+ * Parseq uses more than a pointer into the sequence, because it allows parsing of trees.
+   Therefore the storage key includes a tree pointer (which is a tuple).
+ * Parsing expressions in parseq can have arguments. These affect the behaviour and/or the result of the expression.
+   Therefore, the arguments need to be part of the storage key as well.
+ * Variables declared with (:external ...) may also affect the result of the expression, therefore these variables must be part of the key too.
 
-This means a lot of data that needs to be stored, even if the amount is proportional to the input size.
-The question is: is it worth it? Are cases where exponential time is required frequent? Can't they be avoided by improving the parsing grammar
-expressions?
+This means that the storage key is a compound object that potentially contains a lot of data.
+Key lookup (which must be done each time a call to a parsing expression is made) requires the comparison of keys.
+With the key being a compound object, the comparison between keys may be just as expensive as evaluating the parsing expression instead.
+The question is: is it worth it? How frequently do cases occur where exponential time is required?
+Can't these cases be avoided by modifying the parsing grammar expressions?
 
 An experimental version of parseq with _optional_ packrat parsing actually exists.
 If you think that this feature is absolutely necessary, feel free to contact me.
