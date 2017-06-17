@@ -5,6 +5,7 @@
   :license "GPLv2"
   :serial t
   :components ((:file "package")
+               (:file "conditions")
                (:file "utils")
                (:file "defrule"))
   :in-order-to ((test-op (test-op :parseq-test))))

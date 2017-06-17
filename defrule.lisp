@@ -5,7 +5,7 @@
 ;; it can be shadowed. This is used in the macro with-local-rules.
 (defparameter *rule-table* (make-hash-table))
 
-(defun parseq (rule sequence &key (start 0) end junk-allowed)
+(defun parseq (rule sequence &key (start 0) end junk-allowed parse-error)
   ;; Parses sequence according to the given rule. A subsequence
   ;; can be parsed by passing the start and/or end arguments.
   ;; The parse does fails if the end of the sequence is not reached
@@ -16,7 +16,9 @@
       ;; Check for success and sequence bounds and return success or failure
       (if (and success (or (and junk-allowed (or (null end) (< (first newpos) end))) (= (or end (length sequence)) (first newpos))))
           (values result t)
-          (values nil nil)))))
+          (if parse-error
+              (f-error generic-parse-error () "")
+              (values nil nil))))))
 
 (defun parseq-internal (rule sequence pos)
   ;; Function that looks up a named rule and calls it when found.
@@ -24,12 +26,13 @@
   (cond
     ;; Rule is a named rule (with or without args)
     ((or (symbolp rule) (and (consp rule) (symbolp (first rule))))
-     ;; Get the function from the rule table
+     ;; Valid rule call. Get the function from the rule table.
      (let ((fun (gethash (if (consp rule) (first rule) rule) *rule-table*)))
        (if fun
            (apply fun sequence pos (if (listp rule) (rest rule)))
-           (error "Unknown rule: ~a" rule))))
-    (t (error "Invalid rule: ~a" rule))))
+           (f-error unknown-rule-error () "Unknown rule: ~a" rule))))
+    ;; Invalid rule call
+    (t (f-error invalid-rule-error () "Invalid rule: ~a" rule))))
 
 ;; Expansion helper macros ---------------------------------------------------
 
@@ -92,12 +95,12 @@
       ((vectorp arg) (if (equalp arg (treeitem pos expr)) (values arg t (treepos-step pos 1))))
       ;; Is a number
       ((numberp arg) (if (= arg (treeitem pos expr)) (values arg t (treepos-step pos))))
-      ;; Is a symbol (possibly a valid rule)
+      ;; Is a symbol (possibly a valid nonterminal)
       ((symbolp arg) (parseq-internal arg expr pos))
-      ;; Is a list (possibly a valid rule with arguments)
+      ;; Is a list (possibly a valid nonterminal with arguments)
       ((listp arg) (parseq-internal arg expr pos))
       ;; Not implemented
-      (t (error "Unknown terminal: ~a (of type ~a)" arg (type-of arg))))))
+      (t (f-error runtime-error () "Unknown terminal: ~a (of type ~a)" arg (type-of arg))))))
 
 ;; Expansion functions -----------------------------------------------
 
@@ -158,7 +161,7 @@
        ((symbol= rule 'string) `(test-and-advance ,expr ,pos (stringp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
        ;; Is a call to another rule (without args)
        (t `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))))
-    (t (error "Unknown atom: ~a (~a)" rule (type-of rule)))))
+    (t (f-error invalid-terminal-error () "Unknown terminal: ~s (of type ~a)" rule (type-of rule)))))
 
 (defun expand-or (expr rule pos args)
   ;; Generates code that parses an expression using (or ...)
@@ -350,33 +353,61 @@
   ;; Rule is a ...
   (case-test ((first rule) :test symbol=)
     ;; ordered choice
-    (or (expand-or expr (rest rule) pos args))
+    (or (if (l> rule 1)
+            (expand-or expr (rest rule) pos args)
+            (f-error invalid-operation-error () "Invalid (or ...) expression.")))
     ;; sequence
-    (and (expand-and expr (rest rule) pos args))
+    (and (if (l> rule 1)
+             (expand-and expr (rest rule) pos args)
+             (f-error invalid-operation-error () "Invalid (and ...) expression.")))
     ;; sequence (unordered)
-    (and~ (expand-and~ expr (rest rule) pos args))
+    (and~ (if (l> rule 1)
+              (expand-and~ expr (rest rule) pos args)
+              (f-error invalid-operation-error () "Invalid (and~ ...) expression.")))
     ;; sequence (unordered, extended)
-    (and~~ (expand-and~~ expr (cadr rule) (cddr rule) pos args))
+    (and~~ (if (l> rule 2)
+               (expand-and~~ expr (cadr rule) (cddr rule) pos args)
+               (f-error invalid-operation-error () "Invalid (and~~ ...) expression.")))
     ;; negation
-    (not (expand-not expr (second rule) pos args))
+    (not (if (l= rule 2)
+             (expand-not expr (second rule) pos args)
+             (f-error invalid-operation-error () "Invalid (not ...) expression.")))
     ;; greedy repetition
-    (* (expand-* expr (second rule) pos args))
+    (* (if (l= rule 2)
+           (expand-* expr (second rule) pos args)
+           (f-error invalid-operation-error () "Invalid (* ...) expression.")))
     ;; greedy positive repetition
-    (+ (expand-+ expr (second rule) pos args))
+    (+ (if (l= rule 2)
+           (expand-+ expr (second rule) pos args)
+           (f-error invalid-operation-error () "Invalid (+ ...) expression.")))
     ;; optional
-    (? (expand-? expr (second rule) pos args))
+    (? (if (l= rule 2)
+           (expand-? expr (second rule) pos args)
+           (f-error invalid-operation-error () "Invalid (? ...) expression.")))
     ;; followed-by predicate
-    (& (expand-& expr (second rule) pos args))
+    (& (if (l= rule 2)
+           (expand-& expr (second rule) pos args)
+           (f-error invalid-operation-error () "Invalid (& ...) expression.")))
     ;; not-followed-by predicate
-    (! (expand-! expr (second rule) pos args))
+    (! (if (l= rule 2)
+           (expand-! expr (second rule) pos args)
+           (f-error invalid-operation-error () "Invalid (! ...) expression.")))
     ;; list
-    (list (expand-sequence expr (second rule) pos args 'listp))
+    (list (if (l= rule 2)
+              (expand-sequence expr (second rule) pos args 'listp)
+              (f-error invalid-operation-error () "Invalid (list ...) expression.")))
     ;; string
-    (string (expand-sequence expr (second rule) pos args 'stringp))
+    (string (if (l= rule 2)
+                (expand-sequence expr (second rule) pos args 'stringp)
+                (f-error invalid-operation-error () "Invalid (string ...) expression.")))
     ;; vector
-    (vector (expand-sequence expr (second rule) pos args 'vectorp))
+    (vector (if (l= rule 2)
+                (expand-sequence expr (second rule) pos args 'vectorp)
+                (f-error invalid-operation-error () "Invalid (vector ...) expression.")))
     ;; repetition
-    (rep (expand-rep (cadr rule) expr (caddr rule) pos args))
+    (rep (if (l> rule 2)
+             (expand-rep (cadr rule) expr (caddr rule) pos args)
+             (f-error invalid-operation-error () "Invalid (rep ...) expression.")))
     ;; a call to another rule (with args)
     (t `(try-and-advance ,(expand-parse-call expr rule pos args) ,pos))))
 
@@ -390,8 +421,9 @@
     ((atom rule) (expand-atom expr rule pos args))
     ;; ... a quoted symbol
     ((quoted-symbol-p rule) (expand-atom expr rule pos args))
-    ;; ... a list expression
-    (t (expand-list-expr expr rule pos args))))
+    ;; ... a list expression like (symbol ...)
+    ((and (consp rule) (symbolp (first rule))) (expand-list-expr expr rule pos args))
+    (t (f-error invalid-operation-error () "Invalid operation ~s" rule))))
 
 (defun expand-destructure (destruct-lambda result body)
   ;; Generates code for handling a (:destructure ...) or (:lambda ...) rule option
@@ -487,7 +519,7 @@
   ;; on when a rule is called and popped when it returns.
   `(progn
      (when (and ,stack (equal ,pos (first ,stack)))
-       (error "Left recursion detected!"))
+       (f-error left-recursion-error () "Left recursion detected!"))
      ;; Save the position in which this rule was called
      (push (treepos-copy ,pos) ,stack)
      ;; Execute the body.
@@ -505,10 +537,13 @@
     ;; Split options into specials, externals and processing options
     (multiple-value-bind (specials externals processing-options)
         (loop for opt in options
-           when (or (not (listp opt)) (null opt)) do (error "Illegal option in rule definition for ~a." name)
+           when (not (consp opt)) do (f-error processing-options-error () "Invalid processing option in rule definition for ~a." name)
            when (eql (first opt) :external) append (rest opt) into externals
            when (eql (first opt) :let) append (rest opt) into specials
-           when (have (first opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not)) collect opt into processing-options
+           when (have (first opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not))
+           collect opt into processing-options
+           when (not (have (first opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not :external :let)))
+             do  (f-error processing-options-error () "Invalid processing option ~s in rule definition for ~a." (first opt) name)
            finally (return (values specials externals processing-options)))
       ;; Bind a variable for the following lambda expression to close over
       `(let (,last-call-pos)

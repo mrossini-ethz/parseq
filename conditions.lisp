@@ -1,0 +1,35 @@
+(in-package :parseq)
+
+(define-condition parseq-error (simple-error) ()
+  (:documentation "Generic error for the parseq library"))
+(export 'parseq-error)
+
+(define-condition generic-parse-error (parseq-error) ()
+  (:documentation "Generic parsing error"))
+(export 'generic-parse-error)
+
+(define-condition rule-definition-error (parseq-error) ()
+  (:documentation "Generic error for rule definitions"))
+(define-condition invalid-terminal-error (rule-definition-error) ()
+  (:documentation "Error condition for rule definitions where a terminal is unknown."))
+(define-condition invalid-operation-error (rule-definition-error) ()
+  (:documentation "Error condition for rule definitions where the usage of an operation is invalid."))
+(define-condition processing-options-error (rule-definition-error) ()
+  (:documentation "Error condition for rule definitions where a processing option is invalid."))
+(export '(rule-definition-error invalid-terminal-error invalid-operation-error processing-options-error))
+
+(define-condition runtime-error (parseq-error) ()
+  (:documentation "Generic runtime error"))
+(define-condition unknown-rule-error (runtime-error) ()
+  (:documentation "Error condition for situations where a rule definition is not found at runtime."))
+(define-condition invalid-terminal-runtime-error (runtime-error) ()
+  (:documentation "Error condition for situations where an invalid terminal in an expression is detected at runtime."))
+(define-condition invalid-rule-error (runtime-error) ()
+  (:documentation "Error condition for malformed calls to rules."))
+(define-condition left-recursion-error (runtime-error) ()
+  (:documentation "Error condition for situations where left recursion is detected at runtime."))
+(export '(runtime-error unknown-rule-error invalid-rule-error left-recursion-error))
+
+(defmacro f-error (type (&rest initargs) control &rest args)
+  "Like (error ...), but allows the condition type to be specified (which is required to inherit from simple-condition)."
+  `(error ',type ,@initargs :format-control ,control :format-arguments (list ,@args)))

@@ -445,7 +445,6 @@ These features _may_ be implemented in the future:
  * Support for streams (how?)
  * Speed and efficiency
  * Enable rules to remember their parsing expression
- * Errors and conditions
  * Parse error reporting
  * Custom terminals
  * Custom non-terminal expressions

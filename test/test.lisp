@@ -618,7 +618,7 @@
     (test-parseq 'nonterminal-and '(a b c) t '(a b c))
     ;; Local rules
     (with-local-rules
-      (condition= (parseq 'nonterminal-and '(a b c)) simple-error))
+      (condition= (parseq 'nonterminal-and '(a b c)) unknown-rule-error))
     (with-local-rules
       (defrule nonterminal-and () (and 'd 'e 'f))
       (test-parseq 'nonterminal-and '(a b c) nil nil))
@@ -646,8 +646,8 @@
 
 (define-test left-recursion-test ()
   (check
-    (condition= (parseq 'left-recursion-indirect '(a a a)) simple-error)
-    (condition= (parseq 'left-recursion '(a a a)) simple-error)))
+    (condition= (parseq 'left-recursion-indirect '(a a a)) left-recursion-error)
+    (condition= (parseq 'left-recursion '(a a a)) left-recursion-error)))
 
 (define-test loop-test ()
   (check
