@@ -23,9 +23,9 @@
   ;; Is called by `parseq' and the parse rule functions.
   (cond
     ;; Rule is a named rule (with or without args)
-    ((or (symbolp rule) (and (listp rule) (symbolp (first rule))))
+    ((or (symbolp rule) (and (consp rule) (symbolp (first rule))))
      ;; Get the function from the rule table
-     (let ((fun (gethash (if (listp rule) (first rule) rule) *rule-table*)))
+     (let ((fun (gethash (if (consp rule) (first rule) rule) *rule-table*)))
        (if fun
            (apply fun sequence pos (if (listp rule) (rest rule)))
            (error "Unknown rule: ~a" rule))))
