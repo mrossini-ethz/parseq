@@ -100,7 +100,7 @@
       ;; Is a list (possibly a valid nonterminal with arguments)
       ((listp arg) (parseq-internal arg expr pos))
       ;; Not implemented
-      (t (f-error runtime-error () "Unknown terminal: ~a (of type ~a)" arg (type-of arg))))))
+      (t (f-error invalid-terminal-runtime-error () "Unknown terminal: ~a (of type ~a)" arg (type-of arg))))))
 
 ;; Expansion functions -----------------------------------------------
 

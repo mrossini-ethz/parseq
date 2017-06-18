@@ -41,6 +41,7 @@
 (defrule nonterminal-vector () (vector 4))
 
 (defrule parameter-terminal (x) x)
+(defrule parameter-terminal-2 (x) x)
 (defrule parameter-terminal-indirect () (parameter-terminal 'a))
 (defrule parameter-repeat (x) (rep x 'a))
 ;; This is a convoluted test that uses nesting of nonterminals with parameters
@@ -442,6 +443,14 @@
     (test-parseq 'nonterminal-vector '(#(4 5)) nil nil)
     (test-parseq 'nonterminal-vector '((4)) nil nil)))
 
+(define-test parse-test ()
+  (check
+    ;; (vector 4)
+    (condition= (parseq 'terminal-t '() :parse-error t) generic-parse-error)
+    (condition= (parseq 'terminal-t '(1 2) :parse-error t) generic-parse-error)
+    (= (parseq 'terminal-t '(1 2) :end 2 :parse-error t :junk-allowed t) 1)
+    (condition= (parseq '(1 2) ()) invalid-rule-error)))
+
 (define-test parameter-test ()
   (check
     ;; x
@@ -459,6 +468,9 @@
     (test-parseq '(parameter-terminal #(1 2 3)) '(#(4 5 6)) nil nil)
     (test-parseq '(parameter-terminal 5) '(5) t 5)
     (test-parseq '(parameter-terminal 5) '(6) nil nil)
+    (test-parseq '(parameter-terminal terminal-t) '(1) t 1)
+    (test-parseq '(parameter-terminal (parameter-terminal-2 'a)) '(a) t 'a)
+    (condition= (parseq '(parameter-terminal #2A((3 4) (1 2))) '(a)) invalid-terminal-runtime-error)
     ;; (parameter-terminal 'a)
     (test-parseq 'parameter-terminal-indirect '(a) t 'a)
     ;; (rep x 'a))
@@ -682,6 +694,7 @@
     (list-test)
     (string-test)
     (vector-test)
+    (parse-test)
     (parameter-test)
     (option-test)
     (multiopt-test)
