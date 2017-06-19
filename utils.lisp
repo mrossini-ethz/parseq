@@ -140,12 +140,13 @@
 ;; String functions
 
 (defun cat (&rest items)
-  (apply #'concatenate 'string (loop for i in items collect (cond
-                                                              ((stringp i) i)
-                                                              ((characterp i) (string i))
-                                                              ((symbolp i) (symbol-name i))
-                                                              ((unsigned-byte-p i) (string (code-char i)))
-                                                              (t (error "Cannot convert ~a into string!" (type-of i)))))))
+  (apply #'concatenate 'string (loop for i in items collect
+                                    (cond
+                                      ((stringp i) i)
+                                      ((characterp i) (string i))
+                                      ((symbolp i) (symbol-name i))
+                                      ((unsigned-byte-p i) (string (code-char i)))
+                                      (t (f-error invalid-operation-error () "Unable to convert ~a into a string." (type-of i)))))))
 
 ;; Tree position functions
 
@@ -171,7 +172,7 @@
      (if (l> pos 1)
          (treepos-length (rest pos) (nth (first pos) tree))
          (and (sequencep (elt tree (first pos))) (length (elt tree (first pos)))))
-     (error "Attempting to descend into a non-sequence type.")))
+     (f-error generic-parse-error () "Attempting to descend into a non-sequence type.")))
 
 (defun treepos-step (pos &optional (delta 1))
   (let ((newpos (copy-tree pos)))
@@ -203,7 +204,7 @@
     ((numberp range) (list range range))
     ((and (listp range) (l= range 1)) (list 0 (first range)))
     ((and (listp range) (l= range 2) (or (null (first range)) (null (second range)) (<= (first range) (second range)))) (list (first range) (second range)))
-    (t (error "Illegal range specified!"))))
+    (t (f-error invalid-operation-error () "Invalid range specified."))))
 
 (defun check-range (count range)
   (let ((min (first range)) (max (second range)))
