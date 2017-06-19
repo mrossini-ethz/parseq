@@ -2,7 +2,7 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
-## Unreleased:
+## Version 0.3.0 - 2017-06-19:
 
 ### Features
 
