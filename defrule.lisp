@@ -84,17 +84,17 @@
       ;; Is a quoted symbol
       ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values (second arg) t (treepos-step pos))))
       ;; Is a character
-      ((characterp arg) (if (char= arg (treeitem pos expr)) (values arg t (treepos-step pos))))
+      ((characterp arg) (if (and (characterp (treeitem pos expr)) (char= arg (treeitem pos expr))) (values arg t (treepos-step pos))))
       ;; Is a string and expression is also a string
       ((and (stringp expr) (stringp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg)))))
       ;; Is a string, expression is not a string
-      ((stringp arg) (if (string= arg (treeitem pos expr)) (values arg t (treepos-step pos 1))))
+      ((stringp arg) (if (and (stringp (treeitem pos expr)) (string= arg (treeitem pos expr))) (values arg t (treepos-step pos 1))))
       ;; Is a vector and expression is also a vector
       ((and (vectorp expr) (vectorp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg)))))
       ;; Is a vector, expression is not a vector
       ((vectorp arg) (if (equalp arg (treeitem pos expr)) (values arg t (treepos-step pos 1))))
       ;; Is a number
-      ((numberp arg) (if (= arg (treeitem pos expr)) (values arg t (treepos-step pos))))
+      ((numberp arg) (if (and (numberp (treeitem pos expr)) (= arg (treeitem pos expr))) (values arg t (treepos-step pos))))
       ;; Is a symbol (possibly a valid nonterminal)
       ((symbolp arg) (parseq-internal arg expr pos))
       ;; Is a list (possibly a valid nonterminal with arguments)
@@ -117,13 +117,13 @@
     ;; Is a quoted symbol
     ((quoted-symbol-p rule) `(test-and-advance ,expr ,pos (symbol= (treeitem ,pos ,expr) ,rule) (treeitem ,pos ,expr)))
     ;; Is a character
-    ((characterp rule) `(test-and-advance ,expr ,pos (char= (treeitem ,pos ,expr) ,rule) (treeitem ,pos ,expr)))
+    ((characterp rule) `(test-and-advance ,expr ,pos (and (characterp (treeitem ,pos ,expr)) (char= (treeitem ,pos ,expr) ,rule)) (treeitem ,pos ,expr)))
     ;; Is a string
     ((stringp rule) `(test-and-advance ,expr ,pos (if (stringp (treeitem (butlast ,pos) ,expr))
                                                       ;; We are parsing a string, so match substring
                                                       (subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos))
                                                       ;; We are not parsing a string, match the whole item
-                                                      (string= (treeitem ,pos ,expr) ,rule))
+                                                      (and (stringp (treeitem ,pos ,expr)) (string= (treeitem ,pos ,expr) ,rule)))
                                        ,rule (if (stringp (treeitem (butlast ,pos) ,expr)) ,(length rule) 1)))
     ;; Is a vector
     ((vectorp rule) `(test-and-advance ,expr ,pos (if (vectorp (treeitem (butlast ,pos) ,expr))
@@ -133,7 +133,7 @@
                                                       (equalp (treeitem ,pos ,expr) ,rule))
                                        ,rule (if (vectorp (treeitem (butlast ,pos) ,expr)) ,(length rule) 1)))
     ;; Is a number
-    ((numberp rule) `(test-and-advance ,expr ,pos (= ,rule (treeitem ,pos ,expr)) ,rule))
+    ((numberp rule) `(test-and-advance ,expr ,pos (and (numberp (treeitem ,pos ,expr)) (= ,rule (treeitem ,pos ,expr))) ,rule))
     ;; Is a symbol
     ((symbolp rule)
      (cond
