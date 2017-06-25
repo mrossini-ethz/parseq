@@ -2,6 +2,13 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
+## Version 0.3.1 - 2017-06-25:
+
+### Bugfixes
+
+  * Fixed the parsing of numbers, characters and strings if the sequence element is of a different type.
+    This now only causes the parse to fail instead of signaling an error.
+
 ## Version 0.3.0 - 2017-06-19:
 
 ### Features
