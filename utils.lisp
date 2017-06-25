@@ -182,6 +182,16 @@
 (defun treepos-copy (pos)
   (copy-tree pos))
 
+(defun treepos> (a b)
+  (let ((na (list-length a)) (nb (list-length b)))
+    (if (= na nb)
+        (loop for ia in a for ib in b when (< ia ib) do (return nil) when (> ia ib) do (return t))
+        (and (loop for ia in a for ib in b always (= ia ib))
+             (> na nb)))))
+
+(defun treepos= (a b)
+  (equalp a b))
+
 ;; Hash table functions
 
 (defun copy-hash-table (hash-table)

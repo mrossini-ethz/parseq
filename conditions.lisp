@@ -6,7 +6,11 @@
 
 (define-condition generic-parse-error (parseq-error) ()
   (:documentation "Generic parsing error"))
-(export 'generic-parse-error)
+(define-condition parse-match-error (generic-parse-error) ()
+  (:documentation "Error condition for when the sequence does not match the parsing grammar rules."))
+(define-condition parse-junk-error (generic-parse-error) ()
+  (:documentation "Error condition for when the sequence is only partially parsed, leaving junk at the end."))
+(export '(generic-parse-error parse-match-error parse-junk-error))
 
 (define-condition rule-definition-error (parseq-error) ()
   (:documentation "Generic error for rule definitions"))

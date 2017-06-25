@@ -5,19 +5,28 @@
 ;; it can be shadowed. This is used in the macro with-local-rules.
 (defparameter *rule-table* (make-hash-table))
 
+;; List of terminals that have already failed at a given position in the
+;; sequence. This is used for error reporting. The variable ist rebound
+;; in each call of (parseq ...). It will later contain the value
+;; (cons <pos> <list-of-terminals>) where <pos> is the rightmost position
+;; in the sequence where parsing failed.
+(defvar *terminal-failure-list* nil)
+
 (defun parseq (rule sequence &key (start 0) end junk-allowed parse-error)
   ;; Parses sequence according to the given rule. A subsequence
   ;; can be parsed by passing the start and/or end arguments.
   ;; The parse does fails if the end of the sequence is not reached
   ;; unless junk-allowed is given.
-  (let ((pos (list start)))
+  (let ((pos (list start)) (*terminal-failure-list* (cons '(-1) nil)))
     ;; Attempt the parse
     (multiple-value-bind (result success newpos) (parseq-internal rule sequence pos)
       ;; Check for success and sequence bounds and return success or failure
       (if (and success (or (and junk-allowed (or (null end) (< (first newpos) end))) (= (or end (length sequence)) (first newpos))))
           (values result t)
           (if parse-error
-              (f-error generic-parse-error () "")
+              (if (not success)
+                  (f-error parse-match-error () "Parse error: Expected ~{~s~^ or ~} at position ~{~a~^:~}." (reverse (cdr *terminal-failure-list*)) (car *terminal-failure-list*))
+                  (f-error parse-junk-error () "Parse error: Junk at the end of the sequence starting at position ~{~a~^:~}." newpos))
               (values nil nil))))))
 
 (defun parseq-internal (rule sequence pos)
@@ -36,16 +45,24 @@
 
 ;; Expansion helper macros ---------------------------------------------------
 
-(defmacro test-and-advance (expr pos test result &optional (inc 1))
+(defun push-terminal-failure (pos terminal)
+  (cond
+    ((treepos= pos (car *terminal-failure-list*)) (pushnew terminal (cdr *terminal-failure-list*) :test #'equal))
+    ((treepos> pos (car *terminal-failure-list*)) (setf (car *terminal-failure-list*) pos
+                                                        (cdr *terminal-failure-list*) (list terminal))))
+  nil)
+
+(defmacro test-and-advance (terminal expr pos test result &optional (inc 1))
   ;; Executes the given test at the given position in the sequence and if
   ;; it succeeds increments the position and returns the sequence item that
   ;; matched.
   (with-gensyms (tmp)
     `(when (treepos-valid ,pos ,expr)
-       (when ,test
-         (let ((,tmp ,result))
-           (setf ,pos (treepos-step ,pos ,inc))
-           (values ,tmp t))))))
+       (if ,test
+           (let ((,tmp ,result))
+             (setf ,pos (treepos-step ,pos ,inc))
+             (values ,tmp t))
+           (push-terminal-failure ,pos ,terminal)))))
 
 (defmacro try-and-advance (func pos)
   ;; Calls the given function and when successful advances the position
@@ -82,19 +99,19 @@
   (when (treepos-valid pos expr)
     (cond
       ;; Is a quoted symbol
-      ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values (second arg) t (treepos-step pos))))
+      ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values (second arg) t (treepos-step pos)) (push-terminal-failure pos (second arg))))
       ;; Is a character
-      ((characterp arg) (if (and (characterp (treeitem pos expr)) (char= arg (treeitem pos expr))) (values arg t (treepos-step pos))))
+      ((characterp arg) (if (and (characterp (treeitem pos expr)) (char= arg (treeitem pos expr))) (values arg t (treepos-step pos)) (push-terminal-failure pos arg)))
       ;; Is a string and expression is also a string
-      ((and (stringp expr) (stringp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg)))))
+      ((and (stringp expr) (stringp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg))) (push-terminal-failure pos arg)))
       ;; Is a string, expression is not a string
-      ((stringp arg) (if (and (stringp (treeitem pos expr)) (string= arg (treeitem pos expr))) (values arg t (treepos-step pos 1))))
+      ((stringp arg) (if (and (stringp (treeitem pos expr)) (string= arg (treeitem pos expr))) (values arg t (treepos-step pos 1)) (push-terminal-failure pos arg)))
       ;; Is a vector and expression is also a vector
-      ((and (vectorp expr) (vectorp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg)))))
+      ((and (vectorp expr) (vectorp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg))) (push-terminal-failure pos arg)))
       ;; Is a vector, expression is not a vector
-      ((vectorp arg) (if (equalp arg (treeitem pos expr)) (values arg t (treepos-step pos 1))))
+      ((vectorp arg) (if (equalp arg (treeitem pos expr)) (values arg t (treepos-step pos 1)) (push-terminal-failure pos arg)))
       ;; Is a number
-      ((numberp arg) (if (and (numberp (treeitem pos expr)) (= arg (treeitem pos expr))) (values arg t (treepos-step pos))))
+      ((numberp arg) (if (and (numberp (treeitem pos expr)) (= arg (treeitem pos expr))) (values arg t (treepos-step pos)) (push-terminal-failure pos arg)))
       ;; Is a symbol (possibly a valid nonterminal)
       ((symbolp arg) (parseq-internal arg expr pos))
       ;; Is a list (possibly a valid nonterminal with arguments)
@@ -115,50 +132,50 @@
   ;; Generates code that parses a lisp atom.
   (cond
     ;; Is a quoted symbol
-    ((quoted-symbol-p rule) `(test-and-advance ,expr ,pos (symbol= (treeitem ,pos ,expr) ,rule) (treeitem ,pos ,expr)))
+    ((quoted-symbol-p rule) `(test-and-advance ,rule ,expr ,pos (symbol= (treeitem ,pos ,expr) ,rule) (treeitem ,pos ,expr)))
     ;; Is a character
-    ((characterp rule) `(test-and-advance ,expr ,pos (and (characterp (treeitem ,pos ,expr)) (char= (treeitem ,pos ,expr) ,rule)) (treeitem ,pos ,expr)))
+    ((characterp rule) `(test-and-advance ,rule ,expr ,pos (and (characterp (treeitem ,pos ,expr)) (char= (treeitem ,pos ,expr) ,rule)) (treeitem ,pos ,expr)))
     ;; Is a string
-    ((stringp rule) `(test-and-advance ,expr ,pos (if (stringp (treeitem (butlast ,pos) ,expr))
+    ((stringp rule) `(test-and-advance ,rule ,expr ,pos (if (stringp (treeitem (butlast ,pos) ,expr))
                                                       ;; We are parsing a string, so match substring
                                                       (subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos))
                                                       ;; We are not parsing a string, match the whole item
                                                       (and (stringp (treeitem ,pos ,expr)) (string= (treeitem ,pos ,expr) ,rule)))
                                        ,rule (if (stringp (treeitem (butlast ,pos) ,expr)) ,(length rule) 1)))
     ;; Is a vector
-    ((vectorp rule) `(test-and-advance ,expr ,pos (if (vectorp (treeitem (butlast ,pos) ,expr))
+    ((vectorp rule) `(test-and-advance ,rule ,expr ,pos (if (vectorp (treeitem (butlast ,pos) ,expr))
                                                       ;; We are parsing a vector, match the subsequence
                                                       (subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos))
                                                       ;; We are not parsing a vector, match the whole item
                                                       (equalp (treeitem ,pos ,expr) ,rule))
                                        ,rule (if (vectorp (treeitem (butlast ,pos) ,expr)) ,(length rule) 1)))
     ;; Is a number
-    ((numberp rule) `(test-and-advance ,expr ,pos (and (numberp (treeitem ,pos ,expr)) (= ,rule (treeitem ,pos ,expr))) ,rule))
+    ((numberp rule) `(test-and-advance ,rule ,expr ,pos (and (numberp (treeitem ,pos ,expr)) (= ,rule (treeitem ,pos ,expr))) ,rule))
     ;; Is a symbol
     ((symbolp rule)
      (cond
        ;; Is a lambda variable. Since we don't know what the value is at compile time, we have to dispatch at runtime
        ((have rule args) `(try-and-advance (runtime-dispatch ,expr ,rule ,pos) ,pos))
        ;; Is the symbol 't'
-       ((eql rule t) `(test-and-advance ,expr ,pos (not (null (treeitem ,pos ,expr))) (treeitem ,pos ,expr)))
+       ((eql rule t) `(test-and-advance ,rule ,expr ,pos (not (null (treeitem ,pos ,expr))) (treeitem ,pos ,expr)))
        ;; Is the symbol 'nil'
-       ((null rule) `(test-and-advance ,expr ,pos (null (treeitem ,pos ,expr)) nil))
+       ((null rule) `(test-and-advance ,rule ,expr ,pos (null (treeitem ,pos ,expr)) nil))
        ;; Is the symbol 'char'
-       ((symbol= rule 'char) `(test-and-advance ,expr ,pos (characterp (treeitem ,pos ,expr)) (treeitem ,pos, expr)))
+       ((symbol= rule 'char) `(test-and-advance ',rule ,expr ,pos (characterp (treeitem ,pos ,expr)) (treeitem ,pos, expr)))
        ;; Is the symbol 'byte'
-       ((symbol= rule 'byte) `(test-and-advance ,expr ,pos (unsigned-byte-p (treeitem ,pos ,expr)) (treeitem ,pos ,expr)))
+       ((symbol= rule 'byte) `(test-and-advance ',rule ,expr ,pos (unsigned-byte-p (treeitem ,pos ,expr)) (treeitem ,pos ,expr)))
        ;; Is the symbol 'symbol'
-       ((symbol= rule 'symbol) `(test-and-advance ,expr ,pos (symbolp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+       ((symbol= rule 'symbol) `(test-and-advance ',rule ,expr ,pos (symbolp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
        ;; Is the symbol 'form'
-       ((symbol= rule 'form) `(test-and-advance ,expr ,pos t (treeitem ,pos, expr)))
+       ((symbol= rule 'form) `(test-and-advance ',rule ,expr ,pos t (treeitem ,pos, expr)))
        ;; Is the symbol 'list'
-       ((symbol= rule 'list) `(test-and-advance ,expr ,pos (listp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+       ((symbol= rule 'list) `(test-and-advance ',rule ,expr ,pos (listp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
        ;; Is the symbol 'vector'
-       ((symbol= rule 'vector) `(test-and-advance ,expr ,pos (vectorp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+       ((symbol= rule 'vector) `(test-and-advance ',rule ,expr ,pos (vectorp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
        ;; Is the symbol 'number'
-       ((symbol= rule 'number) `(test-and-advance ,expr ,pos (numberp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+       ((symbol= rule 'number) `(test-and-advance ',rule ,expr ,pos (numberp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
        ;; Is the symbol 'string'
-       ((symbol= rule 'string) `(test-and-advance ,expr ,pos (stringp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+       ((symbol= rule 'string) `(test-and-advance ',rule ,expr ,pos (stringp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
        ;; Is a call to another rule (without args)
        (t `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))))
     (t (f-error invalid-terminal-error () "Unknown terminal: ~s (of type ~a)" rule (type-of rule)))))
