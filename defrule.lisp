@@ -25,7 +25,9 @@
           (values result t)
           (if parse-error
               (if (not success)
-                  (f-error parse-match-error () "Parse error: Expected ~{~s~^ or ~} at position ~{~a~^:~}." (reverse (cdr *terminal-failure-list*)) (car *terminal-failure-list*))
+                  (let ((fail-pos (car *terminal-failure-list*)) (terminals (reverse (cdr *terminal-failure-list*))))
+                    (f-error parse-match-error (:position fail-pos :terminals terminals)
+                             "Parse error: Expected ~{~s~^ or ~} at position ~{~a~^:~}." terminals fail-pos))
                   (f-error parse-junk-error () "Parse error: Junk at the end of the sequence starting at position ~{~a~^:~}." newpos))
               (values nil nil))))))
 

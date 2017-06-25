@@ -6,11 +6,13 @@
 
 (define-condition generic-parse-error (parseq-error) ()
   (:documentation "Generic parsing error"))
-(define-condition parse-match-error (generic-parse-error) ()
+(define-condition parse-match-error (generic-parse-error)
+  ((position :initarg :position :accessor parse-error-position)
+   (terminals :initarg :terminals :initform nil :accessor parse-error-terminals))
   (:documentation "Error condition for when the sequence does not match the parsing grammar rules."))
 (define-condition parse-junk-error (generic-parse-error) ()
   (:documentation "Error condition for when the sequence is only partially parsed, leaving junk at the end."))
-(export '(generic-parse-error parse-match-error parse-junk-error))
+(export '(generic-parse-error parse-match-error parse-junk-error parse-error-position parse-error-terminals))
 
 (define-condition rule-definition-error (parseq-error) ()
   (:documentation "Generic error for rule definitions"))
