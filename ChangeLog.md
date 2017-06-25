@@ -2,6 +2,12 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
+## Unreleased
+
+### Features
+
+  * Meaningful parsing error messages based on sequence position and terminal expressions.
+
 ## Version 0.3.1 - 2017-06-25:
 
 ### Bugfixes
