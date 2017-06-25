@@ -33,10 +33,10 @@
 (defvar *test-name* nil)
 (defvar *test-failures* 0)
 
-(defmacro condition= (form condition)
+(defmacro condition= (form condition &optional condition-object-variable &rest tests)
   "Tests whether the execution of the form results in the given condition (returning T). If no condition or a different condition occurs, NIL is returned."
   `(handler-case (and ,form nil)
-     (,condition () t)
+     (,condition (,@(if condition-object-variable `(,condition-object-variable) nil)) (and ,@tests))
      (t () nil)))
 
 (defmacro define-test (name parameters &body body)
