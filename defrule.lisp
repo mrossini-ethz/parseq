@@ -57,12 +57,13 @@
   ;; it succeeds increments the position and returns the sequence item that
   ;; matched.
   (with-gensyms (tmp)
-    `(when (treepos-valid ,pos ,expr)
-       (if ,test
-           (let ((,tmp ,result))
-             (setf ,pos (treepos-step ,pos ,inc))
-             (values ,tmp t))
-           (push-terminal-failure ,pos ,terminal)))))
+    `(if (treepos-valid ,pos ,expr)
+         (if ,test
+             (let ((,tmp ,result))
+               (setf ,pos (treepos-step ,pos ,inc))
+               (values ,tmp t))
+             (push-terminal-failure ,pos ,terminal))
+         (push-terminal-failure ,pos ,terminal))))
 
 (defmacro try-and-advance (func pos)
   ;; Calls the given function and when successful advances the position
@@ -92,32 +93,38 @@
 
 ;; Runtime dispatch ----------------------------------------------------------
 
+(defmacro runtime-match (terminal expr pos test result &optional (inc 1))
+  `(if (treepos-valid ,pos ,expr)
+       (if ,test
+           (values ,result t (treepos-step ,pos ,inc))
+           (push-terminal-failure ,pos ,terminal))
+       (push-terminal-failure ,pos ,terminal)))
+
 (defun runtime-dispatch (expr arg pos)
   ;; Function that parses terminals at runtime. This is used
   ;; when the type of terminal is unknown at compile time
   ;; (such as for rule arguments).
-  (when (treepos-valid pos expr)
-    (cond
-      ;; Is a quoted symbol
-      ((quoted-symbol-p arg) (if (symbol= (second arg) (treeitem pos expr)) (values (second arg) t (treepos-step pos)) (push-terminal-failure pos (second arg))))
-      ;; Is a character
-      ((characterp arg) (if (and (characterp (treeitem pos expr)) (char= arg (treeitem pos expr))) (values arg t (treepos-step pos)) (push-terminal-failure pos arg)))
-      ;; Is a string and expression is also a string
-      ((and (stringp expr) (stringp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg))) (push-terminal-failure pos arg)))
-      ;; Is a string, expression is not a string
-      ((stringp arg) (if (and (stringp (treeitem pos expr)) (string= arg (treeitem pos expr))) (values arg t (treepos-step pos 1)) (push-terminal-failure pos arg)))
-      ;; Is a vector and expression is also a vector
-      ((and (vectorp expr) (vectorp arg)) (if (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) (values arg t (treepos-step pos (length arg))) (push-terminal-failure pos arg)))
-      ;; Is a vector, expression is not a vector
-      ((vectorp arg) (if (equalp arg (treeitem pos expr)) (values arg t (treepos-step pos 1)) (push-terminal-failure pos arg)))
-      ;; Is a number
-      ((numberp arg) (if (and (numberp (treeitem pos expr)) (= arg (treeitem pos expr))) (values arg t (treepos-step pos)) (push-terminal-failure pos arg)))
-      ;; Is a symbol (possibly a valid nonterminal)
-      ((symbolp arg) (parseq-internal arg expr pos))
-      ;; Is a list (possibly a valid nonterminal with arguments)
-      ((listp arg) (parseq-internal arg expr pos))
-      ;; Not implemented
-      (t (f-error invalid-terminal-runtime-error () "Unknown terminal: ~a (of type ~a)" arg (type-of arg))))))
+  (cond
+    ;; Is a quoted symbol
+    ((quoted-symbol-p arg) (runtime-match arg expr pos (symbol= (second arg) (treeitem pos expr)) (second arg)))
+    ;; Is a character
+    ((characterp arg) (runtime-match arg expr pos (and (characterp (treeitem pos expr)) (char= arg (treeitem pos expr))) arg))
+    ;; Is a string and expression is also a string
+    ((and (stringp expr) (stringp arg)) (runtime-match arg expr pos (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) arg (length arg)))
+    ;; Is a string, expression is not a string
+    ((stringp arg) (runtime-match arg expr pos (and (stringp (treeitem pos expr)) (string= arg (treeitem pos expr))) arg))
+    ;; Is a vector and expression is also a vector
+    ((and (vectorp expr) (vectorp arg)) (runtime-match arg expr pos (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) arg (length arg)))
+    ;; Is a vector, expression is not a vector
+    ((vectorp arg) (runtime-match arg expr pos (equalp arg (treeitem pos expr)) arg))
+    ;; Is a number
+    ((numberp arg) (runtime-match arg expr pos (and (numberp (treeitem pos expr)) (= arg (treeitem pos expr))) arg))
+    ;; Is a symbol (possibly a valid nonterminal)
+    ((symbolp arg) (parseq-internal arg expr pos))
+    ;; Is a list (possibly a valid nonterminal with arguments)
+    ((listp arg) (parseq-internal arg expr pos))
+    ;; Not implemented
+    (t (f-error invalid-terminal-runtime-error () "Unknown terminal: ~a (of type ~a)" arg (type-of arg)))))
 
 ;; Expansion functions -----------------------------------------------
 
