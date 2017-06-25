@@ -108,7 +108,7 @@
   ;; (such as for rule arguments).
   (cond
     ;; Is a quoted symbol
-    ((quoted-symbol-p arg) (runtime-match arg expr pos (symbol= (second arg) (treeitem pos expr)) (second arg)))
+    ((quoted-symbol-p arg) (runtime-match (second arg) expr pos (symbol= (second arg) (treeitem pos expr)) (second arg)))
     ;; Is a character
     ((characterp arg) (runtime-match arg expr pos (and (characterp (treeitem pos expr)) (char= arg (treeitem pos expr))) arg))
     ;; Is a string and expression is also a string
