@@ -86,6 +86,8 @@
 (defrule nest-and-+ () (and (+ 'a) (+ 'b)))
 (defrule nest-list-list () (list (list 'a)))
 
+(defrule parse-error () (and terminal-symbol (or (and 'b (* 'd) (parameter-terminal 'e)) (and 'c (or 'g 'h)) (and 'b 'f))))
+
 (defrule recursion () (or (and 'a recursion) 'a))
 (defrule left-recursion () (or (and 'a left-recursion 'b) (and left-recursion 'a) 'a))
 (defrule left-recursion-indirect () (and (? 'b) left-recursion-indirect-2))
@@ -654,6 +656,20 @@
     (test-parseq 'nonterminal-and '(a b c) t '(a b c))
     (test-parseq 'nonterminal-and '(d e f) nil nil)))
 
+(define-test parse-error-test ()
+  (check
+    ;; parse-match-error
+    ;; (and terminal-symbol (or (and 'b (* 'd) (parameter-terminal 'e)) (and 'c (or 'g 'h)) (and 'b 'f)))
+    (condition= (parseq 'parse-error '(v) :parse-error t) parse-match-error obj (equal (parse-error-position obj) '(0)) (equal (parse-error-terminals obj) '(a)))
+    (condition= (parseq 'parse-error '(a v) :parse-error t) parse-match-error obj (equal (parse-error-position obj) '(1)) (equal (parse-error-terminals obj) '(b c)))
+    (condition= (parseq 'parse-error '(a b v) :parse-error t) parse-match-error obj (equal (parse-error-position obj) '(2)) (equal (parse-error-terminals obj) '(d e f)))
+    (condition= (parseq 'parse-error '(a c v) :parse-error t) parse-match-error obj (equal (parse-error-position obj) '(2)) (equal (parse-error-terminals obj) '(g h)))
+    (condition= (parseq 'parse-error '(a b d v) :parse-error t) parse-match-error obj (equal (parse-error-position obj) '(3)) (equal (parse-error-terminals obj) '(d e)))
+    (condition= (parseq 'parse-error '(a b d d v) :parse-error t) parse-match-error obj (equal (parse-error-position obj) '(4)) (equal (parse-error-terminals obj) '(d e)))
+    (condition= (parseq 'parse-error '(a b d d d v) :parse-error t) parse-match-error obj (equal (parse-error-position obj) '(5)) (equal (parse-error-terminals obj) '(d e)))
+    ;; parse-junk-error
+    (condition= (parseq 'parse-error '(a b f v) :parse-error t) parse-junk-error)))
+
 (define-test recursion-test ()
   (check
     (test-parseq 'recursion '() nil nil)
@@ -708,6 +724,7 @@
     (nesting-test)
     (bind-test)
     (namespace-test)
+    (parse-error-test)
     (recursion-test)
     (left-recursion-test)
     (loop-test)))
