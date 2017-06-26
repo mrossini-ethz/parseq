@@ -625,18 +625,20 @@
                      (let ((,oldpos (treepos-copy ,pos)))
                        ;; Print tracing information
                        (with-tracing (,name ,oldpos)
-                         ;; Expand the rule into code that parses the sequence
-                         (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
-                           ;; Process the result
-                           (multiple-value-bind (,result ,success) (with-packrat (,name ,pos ,lambda-list ,externals) ,(expand-processing-options result processing-options))
-                             ;; Processing of (:test ...) and (:not ...) options may make the parse fail
-                             (if ,success
-                                 ;; Return the processed parsing result, the success and the new position
-                                 (values ,result t ,pos)
-                                 ;; Processing causes parse to fail
-                                 (values nil nil ,oldpos)))
-                           ;; Return nil as parsing result, failure and the old position
-                           (values nil nil ,oldpos))))))))))))
+                         ;; Memoization (packrat parsing)
+                         (with-packrat (,name ,oldpos ,lambda-list ,externals)
+                           ;; Expand the rule into code that parses the sequence
+                           (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
+                             ;; Process the result
+                             (multiple-value-bind (,result ,success) ,(expand-processing-options result processing-options)
+                               ;; Processing of (:test ...) and (:not ...) options may make the parse fail
+                               (if ,success
+                                   ;; Return the processed parsing result, the success and the new position
+                                   (values ,result t ,pos)
+                                   ;; Processing causes parse to fail
+                                   (values nil nil ,oldpos)))
+                             ;; Return nil as parsing result, failure and the old position
+                             (values nil nil ,oldpos)))))))))))))
 
 ;; Namespace macros -----------------------------------------------------------
 
