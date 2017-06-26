@@ -587,7 +587,7 @@
          ;; Are any values already stored for the current function?
          (if-hash (',name *packrat-table* :var ,memo-table :place t)
                   ;; Values already stored. Check whether the current function call is memoized.
-                  (if-hash ((list ,pos (list ,@lambda-list) (list ,@external-bindings)) ,memo-table :var ,values)
+                  (if-hash ((list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) ,memo-table :var ,values)
                            (progn
                              (setf ,memo t)
                              (return-from ,blockname (apply #'values ,values))))
