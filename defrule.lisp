@@ -27,8 +27,8 @@
               (if (not success)
                   (let ((fail-pos (car *terminal-failure-list*)) (terminals (reverse (cdr *terminal-failure-list*))))
                     (f-error parse-match-error (:position fail-pos :terminals terminals)
-                             "Parse error: Expected ~{~s~^ or ~} at position ~a." terminals fail-pos))
-                  (f-error parse-junk-error () "Parse error: Junk at the end of the sequence starting at position ~{~a~^:~}." newpos))
+                             "Parse error: Expected ~{~s~^ or ~} at position ~a." terminals (treepos-str fail-pos)))
+                  (f-error parse-junk-error () "Parse error: Junk at the end of the sequence starting at position ~a." (treepos-str newpos)))
               (values nil nil))))))
 
 (defun parseq-internal (rule sequence pos)
