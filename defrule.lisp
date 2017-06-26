@@ -574,8 +574,8 @@
            finally (return (values specials externals processing-options)))
       ;; Bind a variable for the following lambda expression to close over
       `(let (,last-call-pos)
-         ;; Save the name in the trace rule table
-         (setf (gethash (symbol-name ',name) *trace-rule*) 0)
+         ;; Save the name in the trace rule table (unless it is already there)
+         (if-hash ((symbol-name ',name) *trace-rule* :var value :place t) t (setf value 0))
          ;; Save the lambda function in the namespace table
          (setf (gethash ',name *rule-table*)
                ;; Lambda expression that parses according to the given grammar rule
