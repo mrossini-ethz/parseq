@@ -150,47 +150,95 @@
 
 ;; Tree position functions
 
-(defun treepos-valid (pos tree)
-  (when (and (sequencep tree) (not (minusp (first pos))))
-    (if (l> pos 1)
-        ;; Not toplevel
-        (when (> (length tree) (first pos))
-          ;; Descend into the toplevel item to recursively check the sublevel
-          (treepos-valid (rest pos) (elt tree (first pos))))
-        ;; Toplevel. Check whether the list is longer than the position index.
-        (> (length tree) (first pos)))))
+(defun make-treepos (&rest indices)
+  "Creates a new tree position object."
+  (let ((treepos (make-array 1 :element-type '(integer 0 #.most-positive-fixnum) :adjustable t :fill-pointer 0)))
+    (if indices
+        (dolist (idx indices)
+          (vector-push-extend idx treepos))
+        (vector-push 0 treepos))
+    treepos))
 
-(defun treeitem (pos tree)
-  (when (and (sequencep tree) (listp pos))
-    (cond
-      ((l> pos 1) (treeitem (rest pos) (elt tree (first pos))))
-      ((null pos) tree)
-      (t (elt tree (first pos))))))
+(defun treepos-copy (treepos &optional depth)
+  (let* ((n (length treepos)) (result (make-array n :element-type '(integer 0 #.most-positive-fixnum) :adjustable t :fill-pointer 0)))
+    (dotimes (i (if depth (if (minusp depth) (+ n depth) depth) n) result)
+      (vector-push (aref treepos i) result))))
 
-(defun treepos-length (pos tree)
-  (if (sequencep tree)
-     (if (l> pos 1)
-         (treepos-length (rest pos) (nth (first pos) tree))
-         (and (sequencep (elt tree (first pos))) (length (elt tree (first pos)))))
-     (f-error generic-parse-error () "Attempting to descend into a non-sequence type.")))
+(defun treepos-depth (treepos)
+  (length treepos))
 
-(defun treepos-step (pos &optional (delta 1))
-  (let ((newpos (copy-tree pos)))
-    (incf (car (last newpos)) delta)
+(defun treepos-valid (treepos tree)
+  "Verifies whether the given position exists in the given tree."
+  (labels ((recursion (pos idx tree)
+             (if (> (- (treepos-depth pos) idx) 1)
+                 ;; Not toplevel - recursively descend
+                 (when (> (length tree) (aref pos idx))
+                   (recursion pos (1+ idx) (elt tree (aref pos idx))))
+                 ;; Toplevel - check whether the list is longer than the position index
+                 (and (sequencep tree) (> (length tree) (aref pos idx))))))
+    (recursion treepos 0 tree)))
+
+(defun treeitem (treepos tree)
+  "Retrieves an item from the tree by using the given treepointer."
+  (labels ((recursion (pos idx tree)
+             (cond
+               ((> (- (treepos-depth pos) idx) 1) (recursion pos (1+ idx) (elt tree (aref pos idx))))
+               ((= (- (treepos-depth pos) idx) 1) (elt tree (aref pos idx)))
+               ((= (- (treepos-depth pos) idx) 0) tree))))
+    (recursion treepos 0 tree)))
+
+(defun treepos-length (treepos tree)
+  "Determines the length of the item in the tree pointed to by treepos."
+  (labels ((recursion (pos idx tree)
+             (unless (sequencep tree)
+               (f-error generic-parse-error () "Attempting to descend into a non-sequence type."))
+             (if (> (- (treepos-depth pos) idx) 1)
+                 (recursion pos (1+ idx) (elt tree (aref pos idx)))
+                 (let ((element (elt tree (aref pos idx))))
+                   (if (sequencep element)
+                       (length element)
+                       (f-error generic-parse-error () "Tree item is not a sequence."))))))
+    (recursion treepos 0 tree)))
+
+(defun treepos-step (treepos &optional (delta 1))
+  "Copies the tree pointer and increments the tree position."
+  (let ((n (length treepos)) (newpos (treepos-copy treepos)))
+    (incf (aref newpos (1- n)) delta)
     newpos))
 
-(defun treepos-copy (pos)
-  (copy-tree pos))
+(defun treepos-step! (treepos &optional (delta 1))
+  "Modifies the tree pointer, incrementing the tree position."
+  (let ((n (length treepos)))
+    (incf (aref treepos (1- n)) delta)
+    treepos))
+
+(defun treepos-step-down (treepos)
+  (let ((result (treepos-copy treepos)))
+    (vector-push-extend 0 result)
+    result))
+
+(defun treepos-step-down! (treepos)
+  (vector-push-extend 0 treepos)
+  treepos)
 
 (defun treepos> (a b)
-  (let ((na (list-length a)) (nb (list-length b)))
+  (let ((na (length a)) (nb (length b)))
     (if (= na nb)
-        (loop for ia in a for ib in b when (< ia ib) do (return nil) when (> ia ib) do (return t))
-        (and (loop for ia in a for ib in b always (= ia ib))
+        (loop for ia across a for ib across b when (< ia ib) do (return nil) when (> ia ib) do (return t))
+        (and (loop for ia across a for ib across b always (= ia ib))
              (> na nb)))))
 
 (defun treepos= (a b)
   (equalp a b))
+
+(defun treepos-elt (treepos index)
+  (elt treepos index))
+
+(defun treepos-highest (treepos)
+  (elt treepos 0))
+
+(defun treepos-lowest (treepos)
+  (elt treepos (1- (length treepos))))
 
 ;; Hash table functions
 

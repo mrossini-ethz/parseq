@@ -17,17 +17,17 @@
   ;; can be parsed by passing the start and/or end arguments.
   ;; The parse does fails if the end of the sequence is not reached
   ;; unless junk-allowed is given.
-  (let ((pos (list start)) (*terminal-failure-list* (cons '(-1) nil)))
+  (let ((pos (make-treepos start)) (*terminal-failure-list* (cons (make-treepos) nil)))
     ;; Attempt the parse
     (multiple-value-bind (result success newpos) (parseq-internal rule sequence pos)
       ;; Check for success and sequence bounds and return success or failure
-      (if (and success (or (and junk-allowed (or (null end) (< (first newpos) end))) (= (or end (length sequence)) (first newpos))))
+      (if (and success (or (and junk-allowed (or (null end) (< (treepos-highest newpos) end))) (= (or end (length sequence)) (treepos-highest newpos))))
           (values result t)
           (if parse-error
               (if (not success)
                   (let ((fail-pos (car *terminal-failure-list*)) (terminals (reverse (cdr *terminal-failure-list*))))
                     (f-error parse-match-error (:position fail-pos :terminals terminals)
-                             "Parse error: Expected ~{~s~^ or ~} at position ~{~a~^:~}." terminals fail-pos))
+                             "Parse error: Expected ~{~s~^ or ~} at position ~a." terminals fail-pos))
                   (f-error parse-junk-error () "Parse error: Junk at the end of the sequence starting at position ~{~a~^:~}." newpos))
               (values nil nil))))))
 
@@ -62,7 +62,7 @@
     `(if (treepos-valid ,pos ,expr)
          (if ,test
              (let ((,tmp ,result))
-               (setf ,pos (treepos-step ,pos ,inc))
+               (treepos-step! ,pos ,inc)
                (values ,tmp t))
              (push-terminal-failure ,pos ,terminal))
          (push-terminal-failure ,pos ,terminal))))
@@ -112,11 +112,11 @@
     ;; Is a character
     ((characterp arg) (runtime-match arg expr pos (and (characterp (treeitem pos expr)) (char= arg (treeitem pos expr))) arg))
     ;; Is a string and expression is also a string
-    ((and (stringp expr) (stringp arg)) (runtime-match arg expr pos (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) arg (length arg)))
+    ((and (stringp expr) (stringp arg)) (runtime-match arg expr pos (subseq-at arg (treeitem (treepos-copy pos -1) expr) (treepos-lowest pos)) arg (length arg)))
     ;; Is a string, expression is not a string
     ((stringp arg) (runtime-match arg expr pos (and (stringp (treeitem pos expr)) (string= arg (treeitem pos expr))) arg))
     ;; Is a vector and expression is also a vector
-    ((and (vectorp expr) (vectorp arg)) (runtime-match arg expr pos (subseq-at arg (treeitem (butlast pos) expr) (last-1 pos)) arg (length arg)))
+    ((and (vectorp expr) (vectorp arg)) (runtime-match arg expr pos (subseq-at arg (treeitem (treepos-copy pos -1) expr) (treepos-lowest pos)) arg (length arg)))
     ;; Is a vector, expression is not a vector
     ((vectorp arg) (runtime-match arg expr pos (equalp arg (treeitem pos expr)) arg))
     ;; Is a number
@@ -145,19 +145,19 @@
     ;; Is a character
     ((characterp rule) `(test-and-advance ,rule ,expr ,pos (and (characterp (treeitem ,pos ,expr)) (char= (treeitem ,pos ,expr) ,rule)) (treeitem ,pos ,expr)))
     ;; Is a string
-    ((stringp rule) `(test-and-advance ,rule ,expr ,pos (if (stringp (treeitem (butlast ,pos) ,expr))
+    ((stringp rule) `(test-and-advance ,rule ,expr ,pos (if (stringp (treeitem (treepos-copy ,pos -1) ,expr))
                                                       ;; We are parsing a string, so match substring
-                                                      (subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos))
+                                                      (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
                                                       ;; We are not parsing a string, match the whole item
                                                       (and (stringp (treeitem ,pos ,expr)) (string= (treeitem ,pos ,expr) ,rule)))
-                                       ,rule (if (stringp (treeitem (butlast ,pos) ,expr)) ,(length rule) 1)))
+                                       ,rule (if (stringp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
     ;; Is a vector
-    ((vectorp rule) `(test-and-advance ,rule ,expr ,pos (if (vectorp (treeitem (butlast ,pos) ,expr))
+    ((vectorp rule) `(test-and-advance ,rule ,expr ,pos (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr))
                                                       ;; We are parsing a vector, match the subsequence
-                                                      (subseq-at ,rule (treeitem (butlast ,pos) ,expr) (last-1 ,pos))
+                                                      (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
                                                       ;; We are not parsing a vector, match the whole item
                                                       (equalp (treeitem ,pos ,expr) ,rule))
-                                       ,rule (if (vectorp (treeitem (butlast ,pos) ,expr)) ,(length rule) 1)))
+                                       ,rule (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
     ;; Is a number
     ((numberp rule) `(test-and-advance ,rule ,expr ,pos (and (numberp (treeitem ,pos ,expr)) (= ,rule (treeitem ,pos ,expr))) ,rule))
     ;; Is a symbol
@@ -275,7 +275,7 @@
          (if (treepos-valid ,pos ,expr)
              (let ((,result (treeitem ,pos ,expr)))
                ;; Advance the position by one
-               (setf ,pos (treepos-step ,pos))
+               (treepos-step! ,pos)
                (values ,result t))
              (values nil nil))
          ;; Expression succeeded, which is bad
@@ -353,12 +353,12 @@
     `(when (and (treepos-valid ,pos ,expr) (funcall #',type-test (treeitem ,pos ,expr)))
        (let ((,length (treepos-length ,pos ,expr)))
          ;; Go into the list
-         (appendf ,pos 0)
+         (treepos-step-down! ,pos)
          (with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
            ;; Success
-           (when (= (last-1 ,pos) ,length)
+           (when (= (treepos-lowest ,pos) ,length)
              ;; Step out of the list and increment the position
-             (setf ,pos (treepos-step (butlast ,pos)))
+             (setf ,pos (treepos-step (treepos-copy ,pos -1)))
              (values (list ,result) t))
            ;; Failure
            (values nil nil))))))
@@ -545,7 +545,7 @@
   ;; a closed over variable where the current position is pushed
   ;; on when a rule is called and popped when it returns.
   `(progn
-     (when (and ,stack (equal ,pos (first ,stack)))
+     (when (and ,stack (treepos= ,pos (first ,stack)))
        (f-error left-recursion-error () "Left recursion detected!"))
      ;; Save the position in which this rule was called
      (push (treepos-copy ,pos) ,stack)
