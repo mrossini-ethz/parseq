@@ -589,7 +589,7 @@
                   (if-hash ((list ,pos (list ,@lambda-list) (list ,@external-bindings)) ,memo-table :var ,values)
                            (return-from ,blockname (apply #'values ,values)))
                   ;; No values stored, create hash table
-                  (setf ,memo-table (make-hash-table :test 'equal))))
+                  (setf ,memo-table (make-hash-table :test 'equalp))))
        ;; Run the body, results in a list
        (let ((,values (multiple-value-list (progn ,@body))))
          ;; Store the results in the packrat table, if necessary
