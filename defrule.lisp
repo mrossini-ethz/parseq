@@ -528,14 +528,15 @@
   ;; Determies, whether a rule is traced or not depending on the given option and the *trace-recursive* parameter.
   (or (plusp trace-option) *trace-recursive*))
 
-(defmacro with-tracing ((name pos) &body body)
+(defmacro with-tracing ((name pos memo) &body body)
   ;; Wrapper for enabling tracing in parse rules
   (with-gensyms (trace-opt result success newpos)
     ;; Lookup tracing options in the hash table.
     ;; This actually closes over the symbol `name' so the parsing function remembers which name it was defined with.
     `(let* ((,trace-opt (gethash (symbol-name ',name) *trace-rule*))
             (*trace-recursive* (if (= ,trace-opt 2) t *trace-recursive*))
-            (*trace-depth* (if (is-traced ,trace-opt) (1+ *trace-depth*) *trace-depth*)))
+            (*trace-depth* (if (is-traced ,trace-opt) (1+ *trace-depth*) *trace-depth*))
+            ,memo)
        ;; Print trace start
        (when (is-traced ,trace-opt)
          (format t "~v,0T~d: ~a ~a?~%" (1- *trace-depth*) *trace-depth* ',name (treepos-str ,pos)))
@@ -545,8 +546,8 @@
          (when (is-traced ,trace-opt)
            ;; Different format depending on success
            (if ,success
-               (format t "~v,0T~d: ~a ~a-~a -> ~s~%" (1- *trace-depth*) *trace-depth* ',name (treepos-str ,pos) (treepos-str ,newpos) ,result)
-               (format t "~v,0T~d: ~a -|~%" (1- *trace-depth*) *trace-depth* ',name)))
+               (format t "~v,0T~d: ~a ~a-~a -> ~s~:[~; (memoized)~]~%" (1- *trace-depth*) *trace-depth* ',name (treepos-str ,pos) (treepos-str ,newpos) ,result ,memo)
+               (format t "~v,0T~d: ~a -|~:[~; (memoized)~]~%" (1- *trace-depth*) *trace-depth* ',name ,memo)))
          ;; Return interceptet return values
          (values ,result ,success ,newpos)))))
 
@@ -578,7 +579,7 @@
 
 ;; Packrat --------------------------------------------------------------------
 
-(defmacro with-packrat ((name pos lambda-list external-bindings) &body body)
+(defmacro with-packrat ((name pos lambda-list external-bindings memo) &body body)
   (with-gensyms (blockname memo-table values)
     `(block ,blockname
        ;; Is packrat parsing enabled?
@@ -587,7 +588,9 @@
          (if-hash (',name *packrat-table* :var ,memo-table :place t)
                   ;; Values already stored. Check whether the current function call is memoized.
                   (if-hash ((list ,pos (list ,@lambda-list) (list ,@external-bindings)) ,memo-table :var ,values)
-                           (return-from ,blockname (apply #'values ,values)))
+                           (progn
+                             (setf ,memo t)
+                             (return-from ,blockname (apply #'values ,values))))
                   ;; No values stored, create hash table
                   (setf ,memo-table (make-hash-table :test 'equalp))))
        ;; Run the body, results in a list
@@ -604,7 +607,7 @@
   ;; Creates a lambda expression that parses the given grammar rules.
   ;; It then stores the lambda function in the global list *rule-table*,
   ;; therefore the rule functions use a namespace separate from everything
-  (with-gensyms (sequence pos oldpos result success last-call-pos)
+  (with-gensyms (sequence pos oldpos result success last-call-pos memo)
     ;; Split options into specials, externals and processing options
     (rule-options-bind (specials externals processing-options) options name
       ;; Bind a variable for the following lambda expression to close over
@@ -624,9 +627,9 @@
                      ;; Save the previous parsing position
                      (let ((,oldpos (treepos-copy ,pos)))
                        ;; Print tracing information
-                       (with-tracing (,name ,oldpos)
+                       (with-tracing (,name ,oldpos ,memo)
                          ;; Memoization (packrat parsing)
-                         (with-packrat (,name ,oldpos ,lambda-list ,externals)
+                         (with-packrat (,name ,oldpos ,lambda-list ,externals ,memo)
                            ;; Expand the rule into code that parses the sequence
                            (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
                              ;; Process the result
