@@ -240,6 +240,9 @@
 (defun treepos-lowest (treepos)
   (elt treepos (1- (length treepos))))
 
+(defun treepos-str (treepos)
+  (format nil "~{~d~^:~}" (loop for idx across treepos collect idx)))
+
 ;; Hash table functions
 
 (defun copy-hash-table (hash-table)
