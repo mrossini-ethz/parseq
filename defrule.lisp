@@ -523,7 +523,7 @@
          (when (is-traced ,trace-opt)
            ;; Different format depending on success
            (if ,success
-               (format t "~v,0T~d: ~a ~a-~a -> ~a~%" (1- *trace-depth*) *trace-depth* ',name (treepos-str ,pos) (treepos-str ,newpos) ,result)
+               (format t "~v,0T~d: ~a ~a-~a -> ~s~%" (1- *trace-depth*) *trace-depth* ',name (treepos-str ,pos) (treepos-str ,newpos) ,result)
                (format t "~v,0T~d: ~a -|~%" (1- *trace-depth*) *trace-depth* ',name)))
          ;; Return interceptet return values
          (values ,result ,success ,newpos)))))
