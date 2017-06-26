@@ -38,19 +38,19 @@ Parseq provides the following features:
 
 First, define a set of grammar rules:
 ```
-(defrule foo () 'foo)
-(defrule bar () 'bar)
+(defrule foo () "foo")
+(defrule bar () "bar")
 (defrule foobar () (and foo bar))
 ```
 The first argument to `(defrule ...)` is the nonterminal symbol that the rule represents.
 These symbols use a different namespace from everything else.
 The second argument is a list of arguments that the rule takes (none in this example).
 The third argument specifies the definition of the nonterminal symbol.
-In this example, the nonterminal `foo` requires the parsing of the lisp symbol `foo`.
-The rule `foobar` combines the two rules `foo` and `bar` to match the list `(foo bar)`, the vector `#(foo bar)` or the string `"FOOBAR"`.
+In this example, the nonterminal `foo` requires the parsing of the string `"foo"`.
+The rule `foobar` combines the two rules `foo` and `bar` to match the string `"foobar"`, the list `("foo" "bar")` or the vector `#("foo" "bar")`.
 The above example could alternatively be stated as
 ```
-(defrule foobar () (and 'foo 'bar))
+(defrule foobar () (and "foo" "bar"))
 ```
 thus not requiring the rules `foo` and `bar`.
 
@@ -58,7 +58,7 @@ Parsing is initiated by calling
 ```
 (parseq 'foobar sequence)
 ```
-which will return the list `(foo bar)` as well as `T` if `sequence` is one of `(foo bar)`, `#(foo bar)` and `"FOOBAR"`.
+which will return the list `("foo" "bar")` as well as `T` if `sequence` is one of `"foobar"`, `("foo" "bar")` and `#("foo" "bar")`.
 If parsing is not successful, `NIL` is returned.
 The first argument to `(parseq ...)` is a nonterminal symbol defined through `defrule`.
 Note that the symbol must be quoted.
