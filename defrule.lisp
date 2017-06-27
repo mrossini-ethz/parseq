@@ -465,17 +465,18 @@
            (let ((,tmp ,result))
              ;; Execute the procs in order
              ,@(loop for opt in procs collect
-                    (case (first opt)
-                      (:constant `(setf ,tmp ,(second opt)))
-                      (:lambda `(setf ,tmp ,(expand-destructure (second opt) tmp (cddr opt))))
-                      (:destructure `(setf ,tmp ,(expand-destructure (second opt) tmp (cddr opt))))
-                      (:function `(setf ,tmp (apply ,(second opt) (mklist ,tmp))))
-                      (:identity `(unless ,(second opt) (setf ,tmp nil)))
-                      (:flatten `(setf ,tmp (if (listp ,tmp) (flatten ,tmp) (list ,tmp))))
-                      (:string `(setf ,tmp (apply #'cat (if (listp ,tmp) (flatten ,tmp) (list ,tmp)))))
-                      (:vector `(setf ,tmp (apply #'vector (if (listp ,tmp) (flatten ,tmp) (list ,tmp)))))
-                      (:test `(unless ,(expand-destructure (second opt) tmp (cddr opt)) (return-from ,blockname)))
-                      (:not `(when ,(expand-destructure (second opt) tmp (cddr opt)) (return-from ,blockname)))))
+                    (cond
+                      ((and (l= opt 2) (eql (first opt) :constant)) `(setf ,tmp ,(second opt)))
+                      ((and (l> opt 1) (eql (first opt) :lambda) (listp (second opt))) `(setf ,tmp ,(expand-destructure (second opt) tmp (cddr opt))))
+                      ((and (l> opt 1) (eql (first opt) :destructure) (listp (second opt))) `(setf ,tmp ,(expand-destructure (second opt) tmp (cddr opt))))
+                      ((and (l= opt 2) (eql (first opt) :function)) `(setf ,tmp (apply ,(second opt) (mklist ,tmp))))
+                      ((and (l= opt 2) (eql (first opt) :identity)) `(unless ,(second opt) (setf ,tmp nil)))
+                      ((and (l= opt 1) (eql (first opt) :flatten)) `(setf ,tmp (if (listp ,tmp) (flatten ,tmp) (list ,tmp))))
+                      ((and (l= opt 1) (eql (first opt) :string)) `(setf ,tmp (apply #'cat (if (listp ,tmp) (flatten ,tmp) (list ,tmp)))))
+                      ((and (l= opt 1) (eql (first opt) :vector)) `(setf ,tmp (apply #'vector (if (listp ,tmp) (flatten ,tmp) (list ,tmp)))))
+                      ((and (l> opt 1) (eql (first opt) :test) (listp (second opt))) `(unless ,(expand-destructure (second opt) tmp (cddr opt)) (return-from ,blockname)))
+                      ((and (l> opt 1) (eql (first opt) :not) (listp (second opt))) `(when ,(expand-destructure (second opt) tmp (cddr opt)) (return-from ,blockname)))
+                      (t (f-error processing-options-error () "Invalid processing option ~s." opt))))
              (values ,tmp t))))))
 
 ;; Special variables (rule bindings) -----------------------------------------
