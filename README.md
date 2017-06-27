@@ -25,6 +25,7 @@ Parseq provides the following features:
  * Simple interface, very similar to [Esrap](https://nikodemus.github.io/esrap/)
  * Provides many specific and non-specific terminal symbols
  * Implements the standard PEG expressions as well as useful extensions
+ * [Packrat parsing](https://github.com/mrossini-ethz/parseq/wiki/Packrat-Parsing) can be enabled for individual PEG rules
  * Parsing expression rules are compiled
  * Parse trees can be transformed during parsing
  * Grammars can be made context aware:
@@ -250,7 +251,11 @@ Note, however, that since the rule argument is unknown at compile time, a runtim
 It is possible to pass multiple arguments, keywords etc.
 The full syntax of lambda lists is allowed.
 
-## Processing options
+## Rule options
+There are several options that can be specified for each rule definition.
+The options can have several effects which are described below.
+
+### Transformation of parse results
 The result from a parsing rule can be processed.
 Example:
 ```
@@ -272,8 +277,6 @@ Note that the options are processed in sequence and the output of the previous o
 (defrule int+int^2 () (and number number) (:lambda (x y) (+ x y)) (:lambda (x) (expt x 2)))
 ```
 This would return `25` when parsing the list `(2 3)`.
-
-### Transformation of parse results
 
 #### Constant result
 ```
@@ -373,6 +376,10 @@ Declares the specified variables.
 If the rule is called by a superior rule that binds these variables (using `:let`, see above), this rule can use and modify the variables.
 It is an error if a rule using external variables is called when the variables are unbound (i.e. the rule must be called as a subexpression to a rule defining the variables).
 
+### Packrat parsing
+Packrat parsing can be enabled by using the `(:packrat t)` option.
+See the [wiki page](https://github.com/mrossini-ethz/parseq/wiki/Packrat-Parsing) for more information.
+
 ## Using context
 Parsing in parseq can be made context aware using two methods.
 
@@ -436,7 +443,6 @@ The rules from outside are saved before entering the body and restored when the 
 ## Upcoming features
 These features _may_ be implemented in the future:
 
- * Enable (optional?) packrat parsing (a working implementation already exists)
  * Short forms for combined nonterminals, e.g.
    * `(? (and ...))`
    * `(? (or ...))`
@@ -448,39 +454,6 @@ These features _may_ be implemented in the future:
  * Custom terminals
  * Custom non-terminal expressions
  * Custom sequences, i.e. parse _anything_
-
-## Packrat parsing?
-At present, parseq is implemented as a recursive-descent parser.
-In the worst case, these types of parsers have exponential execution time.
-To avoid this, [packrat parsing](https://pdos.csail.mit.edu/~baford/packrat/thesis/) can be employed to guarantee linear time.
-However, this happens at the cost of memory consumption (proportional to input size) and some computational overhead.
-
-### Why is parseq not implemented as a packrat parser?
-A packrat parser normally stores the position (key) and the result (value) of a parsing expression to look it up when needed to avoid re-evaluating the expression.
-
-Challenges with _any_ packrat parser:
-
- * The parsing result may be a large tree or other structure.
- * The trees would have to be copied for storage (unless the code is fully functional).
- * Side effects of parsing expressions will break.
-
-Additional challenges making parseq a packrat parser:
-
- * Parseq uses more than a pointer into the sequence, because it allows parsing of trees.
-   Therefore the storage key includes a tree pointer (which is a tuple).
- * Parsing expressions in parseq can have arguments. These affect the behaviour and/or the result of the expression.
-   Therefore, the arguments need to be part of the storage key as well.
- * Variables declared with (:external ...) may also affect the result of the expression, therefore these variables must be part of the key too.
-
-This means that the storage key is a compound object that potentially contains a lot of data.
-Key lookup (which must be done each time a call to a parsing expression is made) requires the comparison of keys.
-With the key being a compound object, the comparison between keys may be just as expensive as evaluating the parsing expression instead.
-The question is: is it worth it? How frequently do cases occur where exponential time is required?
-Can't these cases be avoided by modifying the parsing grammar expressions?
-
-An experimental version of parseq with _optional_ packrat parsing actually exists.
-If you think that this feature is absolutely necessary, feel free to contact me.
-You may be given a load of work to verify the implementation correctness and to benchmark it.
 
 ## Warnings
 Please heed the following warnings:

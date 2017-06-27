@@ -8,6 +8,7 @@ Parseq uses [semantic versioning](http://semver.org/).
 
   * Meaningful parsing error messages based on sequence position and terminal expressions.
   * Internal improvement of the tree pointer abstraction.
+  * Packrat parsing, optional for each rule. No overhead when disabled.
 
 ## Version 0.3.2 - 2017-06-25:
 
