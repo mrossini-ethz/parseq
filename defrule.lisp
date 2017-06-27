@@ -451,6 +451,8 @@
     ((and (consp rule) (symbolp (first rule))) (expand-list-expr expr rule pos args))
     (t (f-error invalid-operation-error () "Invalid operation ~s" rule))))
 
+;; Rule options --------------------------------------------------------------
+
 (defun expand-destructure (destruct-lambda result body)
   ;; Generates code for handling a (:destructure ...) or (:lambda ...) rule option
   `(destructuring-bind ,destruct-lambda (mklist ,result) ,@body))
@@ -478,6 +480,20 @@
                       ((and (l> opt 1) (eql (first opt) :not) (listp (second opt))) `(when ,(expand-destructure (second opt) tmp (cddr opt)) (return-from ,blockname)))
                       (t (f-error processing-options-error () "Invalid processing option ~s." opt))))
              (values ,tmp t))))))
+
+(defmacro rule-options-bind ((specials externals processing) options name &body body)
+  (with-gensyms (opt)
+    `(multiple-value-bind (,specials ,externals ,processing)
+         (loop for ,opt in ,options
+            when (not (consp ,opt)) do (f-error processing-options-error () "Invalid processing option in rule definition for ~a." ,name)
+            when (eql (first ,opt) :external) append (rest ,opt) into ,externals
+            when (eql (first ,opt) :let) append (rest ,opt) into ,specials
+            when (have (first ,opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not))
+            collect ,opt into ,processing
+            when (not (have (first ,opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not :external :let)))
+            do (f-error processing-options-error () "Invalid processing option ~s in rule definition for ~a." (first ,opt) ,name)
+            finally (return (values ,specials ,externals ,processing)))
+       ,@body)))
 
 ;; Special variables (rule bindings) -----------------------------------------
 
@@ -562,16 +578,7 @@
   ;; therefore the rule functions use a namespace separate from everything
   (with-gensyms (sequence pos oldpos result success last-call-pos)
     ;; Split options into specials, externals and processing options
-    (multiple-value-bind (specials externals processing-options)
-        (loop for opt in options
-           when (not (consp opt)) do (f-error processing-options-error () "Invalid processing option in rule definition for ~a." name)
-           when (eql (first opt) :external) append (rest opt) into externals
-           when (eql (first opt) :let) append (rest opt) into specials
-           when (have (first opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not))
-           collect opt into processing-options
-           when (not (have (first opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not :external :let)))
-             do  (f-error processing-options-error () "Invalid processing option ~s in rule definition for ~a." (first opt) name)
-           finally (return (values specials externals processing-options)))
+    (rule-options-bind (specials externals processing-options) options name
       ;; Bind a variable for the following lambda expression to close over
       `(let (,last-call-pos)
          ;; Save the name in the trace rule table (unless it is already there)
