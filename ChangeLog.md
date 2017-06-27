@@ -2,7 +2,7 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
-## Unreleased
+## Version 0.4.0 - 2017-06-27:
 
 ### Features
 
@@ -10,7 +10,7 @@ Parseq uses [semantic versioning](http://semver.org/).
   * Internal improvement of the tree pointer abstraction.
   * Packrat parsing, optional for each rule. No overhead when disabled.
 
-## Version 0.3.2 - 2017-06-25:
+## Version 0.3.2 - 2017-06-27:
 
 ### Bugfixes
 

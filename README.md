@@ -5,7 +5,7 @@ Parseq (pronounced [parsec](https://en.wikipedia.org/wiki/Parsec)) is a parsing 
 It can be used for parsing lisp's sequences types: strings, binary data, lists and vectors.
 Furthermore, parseq is able to parse nested structures such as trees (e.g. lists of lists, lists of vectors, 1D arrays of strings).
 Parseq uses [parsing expression grammars](https://en.wikipedia.org/wiki/Parsing_expression_grammar) (PEG) that can be defined through a simple interface.
-This PEG can be parameterised and made context aware.
+These PEG can be parameterised and made context aware.
 Additionally, the parsing tree can be transformed arbitrarily.
 
 The library is inspired by [Esrap](https://nikodemus.github.io/esrap/) and uses a very similar interface.
@@ -24,16 +24,17 @@ Parseq provides the following features:
  * Allows parsing of sequences within sequences (e.g. trees, strings within lists, ...)
  * Simple interface, very similar to [Esrap](https://nikodemus.github.io/esrap/)
  * Provides many specific and non-specific terminal symbols
- * Implements the standard PEG expressions as well as useful extensions
+ * Implements the standard [PEG expressions](https://en.wikipedia.org/wiki/Parsing_expression_grammar) as well as useful extensions
  * [Packrat parsing](https://github.com/mrossini-ethz/parseq/wiki/Packrat-Parsing) can be enabled for individual PEG rules
  * Parsing expression rules are compiled
  * Parse trees can be transformed during parsing
  * Grammars can be made context aware:
-   * Run parse results through lisp code for verification
+   * Run parse results through lisp code to influence parsing success
    * Share data between parse rules
  * Parsing rules can be parameterised
  * Uses separate namespace(s) for parse rules
  * Tracing of grammar rules
+ * Meaningful parse error messages
 
 ## Basic usage
 
@@ -53,6 +54,10 @@ The above example could alternatively be stated as
 ```
 (defrule foobar () (and "foo" "bar"))
 ```
+or even
+```
+(defrule foobar () "foobar")
+```
 thus not requiring the rules `foo` and `bar`.
 
 Parsing is initiated by calling
@@ -67,6 +72,22 @@ The second argument is the sequence that should be parsed.
 
 This concludes the basic usage of the library. Almost everything is done through `defrule` and `parseq`.
 There are some extra arguments, however, that are explained below.
+
+## Installation
+Parseq is (soon) available with [quicklisp](https://www.quicklisp.org/beta/).
+You can run
+```
+(ql:quickload :parseq)
+``
+in the REPL. Alternatively the system can be loaded through ASDF:
+```
+(require :asdf)
+(asdf:load-system :parseq)
+```
+To access the symbols from the package without the `parseq:` prefix you can
+```
+(use-package :parseq)
+```
 
 ## Terminals
 Terminals (tokens) are the objects that actually appear in the parsed sequence.
@@ -299,7 +320,7 @@ Note that `:lambda` and `:destructure` are actually synonyms.
 (:function #'+)
 ```
 The parsing result is handed over to the function specified (here: `+`).
-Note that the lambda list of the given function has to match the number of items in the parsing result.
+Note that the lambda list of the given function has to match the items in the parsing result.
 The new parsing result is whatever the function returns.
 
 #### Identity
@@ -377,7 +398,7 @@ If the rule is called by a superior rule that binds these variables (using `:let
 It is an error if a rule using external variables is called when the variables are unbound (i.e. the rule must be called as a subexpression to a rule defining the variables).
 
 ### Packrat parsing
-Packrat parsing can be enabled by using the `(:packrat t)` option.
+Packrat parsing can be enabled for a rule by using the `(:packrat t)` option.
 See the [wiki page](https://github.com/mrossini-ethz/parseq/wiki/Packrat-Parsing) for more information.
 
 ## Using context
@@ -410,7 +431,7 @@ Rules can be traced by calling
 (trace-rule 'nonterminal-symbol)
 ```
 which will print the information to standard output.
-If the keyword argument `:recursive` is set to `t`, all rules called from within the given rule will be traced as well.
+With the keyword argument `:recursive t`, all rules called from within the given rule will be traced as well.
 Tracing can be turned off by calling
 ```
 (untrace-rule 'nonterminal-symbol)
@@ -447,10 +468,8 @@ These features _may_ be implemented in the future:
    * `(? (and ...))`
    * `(? (or ...))`
    or multiple arguments to `(? ...)` signifying either a sequence or a choice.
- * Non-greedy expressions
  * Support for streams (how?)
  * Speed and efficiency
- * Enable rules to remember their parsing expression
  * Custom terminals
  * Custom non-terminal expressions
  * Custom sequences, i.e. parse _anything_
