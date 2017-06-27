@@ -487,18 +487,20 @@
                       (t (f-error processing-options-error () "Invalid processing option ~s." opt))))
              (values ,tmp t))))))
 
-(defmacro rule-options-bind ((specials externals processing) options name &body body)
-  (with-gensyms (opt)
-    `(multiple-value-bind (,specials ,externals ,processing)
+(defmacro rule-options-bind ((specials externals processing packrat) options name &body body)
+  (with-gensyms (opt pckrt)
+    `(multiple-value-bind (,specials ,externals ,processing ,packrat)
          (loop for ,opt in ,options
+            with ,pckrt = nil
             when (not (consp ,opt)) do (f-error processing-options-error () "Invalid processing option in rule definition for ~a." ,name)
             when (eql (first ,opt) :external) append (rest ,opt) into ,externals
             when (eql (first ,opt) :let) append (rest ,opt) into ,specials
+            when (and (l= ,opt 2) (eql (first ,opt) :packrat)) do (setf ,pckrt (not (not (second ,opt))))
             when (have (first ,opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not))
             collect ,opt into ,processing
-            when (not (have (first ,opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not :external :let)))
+            when (not (have (first ,opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not :external :let :packrat)))
             do (f-error processing-options-error () "Invalid processing option ~s in rule definition for ~a." (first ,opt) ,name)
-            finally (return (values ,specials ,externals ,processing)))
+            finally (return (values ,specials ,externals ,processing ,pckrt)))
        ,@body)))
 
 ;; Special variables (rule bindings) -----------------------------------------
@@ -579,27 +581,29 @@
 
 ;; Packrat --------------------------------------------------------------------
 
-(defmacro with-packrat ((name pos lambda-list external-bindings memo) &body body)
+(defmacro with-packrat ((enabled name pos lambda-list external-bindings memo) &body body)
   (with-gensyms (blockname memo-table values)
-    `(block ,blockname
-       ;; Is packrat parsing enabled?
-       (when *packrat-table*
-         ;; Are any values already stored for the current function?
-         (if-hash (',name *packrat-table* :var ,memo-table :place t)
-                  ;; Values already stored. Check whether the current function call is memoized.
-                  (if-hash ((list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) ,memo-table :var ,values)
-                           (progn
-                             (setf ,memo t)
-                             (return-from ,blockname (apply #'values ,values))))
-                  ;; No values stored, create hash table
-                  (setf ,memo-table (make-hash-table :test 'equalp))))
-       ;; Run the body, results in a list
-       (let ((,values (multiple-value-list (progn ,@body))))
-         ;; Store the results in the packrat table, if necessary
-         (when *packrat-table*
-           (setf (gethash (list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) (gethash ',name *packrat-table*)) ,values))
-         ;; Return the results again as multiple values
-         (apply #'values ,values)))))
+    (if enabled
+        `(block ,blockname
+           ;; Is packrat parsing enabled?
+           (when *packrat-table*
+             ;; Are any values already stored for the current function?
+             (if-hash (',name *packrat-table* :var ,memo-table :place t)
+                      ;; Values already stored. Check whether the current function call is memoized.
+                      (if-hash ((list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) ,memo-table :var ,values)
+                               (progn
+                                 (setf ,memo t)
+                                 (return-from ,blockname (apply #'values ,values))))
+                      ;; No values stored, create hash table
+                      (setf ,memo-table (make-hash-table :test 'equalp))))
+           ;; Run the body, results in a list
+           (let ((,values (multiple-value-list (progn ,@body))))
+             ;; Store the results in the packrat table, if necessary
+             (when *packrat-table*
+               (setf (gethash (list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) (gethash ',name *packrat-table*)) ,values))
+             ;; Return the results again as multiple values
+             (apply #'values ,values)))
+        `(progn ,@body))))
 
 ;; defrule macro --------------------------------------------------------------
 
@@ -609,7 +613,7 @@
   ;; therefore the rule functions use a namespace separate from everything
   (with-gensyms (sequence pos oldpos result success last-call-pos memo)
     ;; Split options into specials, externals and processing options
-    (rule-options-bind (specials externals processing-options) options name
+    (rule-options-bind (specials externals processing-options packrat) options name
       ;; Bind a variable for the following lambda expression to close over
       `(let (,last-call-pos)
          ;; Save the name in the trace rule table (unless it is already there)
@@ -629,7 +633,7 @@
                        ;; Print tracing information
                        (with-tracing (,name ,oldpos ,memo)
                          ;; Memoization (packrat parsing)
-                         (with-packrat (,name ,oldpos ,lambda-list ,externals ,memo)
+                         (with-packrat (,packrat ,name ,oldpos ,lambda-list ,externals ,memo)
                            ;; Expand the rule into code that parses the sequence
                            (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
                              ;; Process the result

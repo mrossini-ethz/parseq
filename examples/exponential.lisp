@@ -18,7 +18,22 @@
   (defrule j () (or (and i "j") i))
   (trace-rule 'j :recursive t)
   (format t "Without packrat parsing:~%")
-  (parseq 'j "a" :packrat nil)
+  (parseq 'j "a" :packrat nil))
+
+;; With packrat parsing enabled:
+
+(with-local-rules
+  (defrule a () "a" (:packrat t))
+  (defrule b () (or (and a "b") a) (:packrat t))
+  (defrule c () (or (and b "c") b) (:packrat t))
+  (defrule d () (or (and c "d") c) (:packrat t))
+  (defrule e () (or (and d "e") d) (:packrat t))
+  (defrule f () (or (and e "f") e) (:packrat t))
+  (defrule g () (or (and f "g") f) (:packrat t))
+  (defrule h () (or (and g "h") g) (:packrat t))
+  (defrule i () (or (and h "i") h) (:packrat t))
+  (defrule j () (or (and i "j") i) (:packrat t))
+  (trace-rule 'j :recursive t)
   (format t "With packrat parsing:~%")
   (parseq 'j "a" :packrat t))
 
