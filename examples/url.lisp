@@ -35,4 +35,5 @@
 (defrule escape () (and #\% hex hex))
 (defrule hex () (or digit #\a #\b #\c #\d #\e #\f #\A #\B #\C #\D #\E #\F))
 
-(parseq 'url "http://github.com:22/mrossini-ethz/parseq?foo+bar+baz")
+(trace-rule 'url :recursive t)
+(parseq 'url "http://github.com:22/mrossini-ethz/parseq?foo+bar+baz" :parse-error t)
