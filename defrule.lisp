@@ -581,6 +581,12 @@
 
 ;; Packrat --------------------------------------------------------------------
 
+(defun make-packrat-key (treepos lambda-list external-bindings)
+  "Generates a key for the packrat memoization hash table."
+  (if (or lambda-list external-bindings)
+      `(list ,treepos ,@(when lambda-list (list `(list ,@(lambda-list-vars lambda-list)))) ,@(when external-bindings (list `(list ,@external-bindings))))
+      treepos))
+
 (defmacro with-packrat ((enabled name pos lambda-list external-bindings memo) &body body)
   (with-gensyms (blockname memo-table values)
     (if enabled
@@ -588,7 +594,7 @@
            ;; Are any values already stored for the current function?
            (if-hash (',name *packrat-table* :var ,memo-table :place t)
                     ;; Values already stored. Check whether the current function call is memoized.
-                    (if-hash ((list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) ,memo-table :var ,values)
+                    (if-hash (,(make-packrat-key pos lambda-list external-bindings) ,memo-table :var ,values)
                              (progn
                                (setf ,memo t)
                                (return-from ,blockname (apply #'values ,values))))
@@ -597,7 +603,7 @@
            ;; Run the body, results in a list
            (let ((,values (multiple-value-list (progn ,@body))))
              ;; Store the results in the packrat table, if necessary
-             (setf (gethash (list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) (gethash ',name *packrat-table*)) ,values)
+             (setf (gethash ,(make-packrat-key pos lambda-list external-bindings) (gethash ',name *packrat-table*)) ,values)
              ;; Return the results again as multiple values
              (apply #'values ,values)))
         `(progn ,@body))))
