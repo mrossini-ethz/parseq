@@ -2,6 +2,12 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
+## Version 0.3.2 - 2017-06-25:
+
+### Bugfixes
+
+  * Added more elaborate tests for verifying the correctness of processing options in rule definitions.
+
 ## Version 0.3.1 - 2017-06-25:
 
 ### Bugfixes
