@@ -18,12 +18,12 @@
 ;; in the sequence where parsing failed.
 (defvar *terminal-failure-list* nil)
 
-(defun parseq (rule sequence &key (start 0) end junk-allowed parse-error packrat)
+(defun parseq (rule sequence &key (start 0) end junk-allowed parse-error)
   ;; Parses sequence according to the given rule. A subsequence
   ;; can be parsed by passing the start and/or end arguments.
   ;; The parse does fails if the end of the sequence is not reached
   ;; unless junk-allowed is given.
-  (let ((pos (make-treepos start)) (*terminal-failure-list* (cons (make-treepos) nil)) (*packrat-table* (if packrat (make-hash-table))))
+  (let ((pos (make-treepos start)) (*terminal-failure-list* (cons (make-treepos) nil)) (*packrat-table* (make-hash-table)))
     ;; Attempt the parse
     (multiple-value-bind (result success newpos) (parseq-internal rule sequence pos)
       ;; Check for success and sequence bounds and return success or failure
@@ -585,22 +585,19 @@
   (with-gensyms (blockname memo-table values)
     (if enabled
         `(block ,blockname
-           ;; Is packrat parsing enabled?
-           (when *packrat-table*
-             ;; Are any values already stored for the current function?
-             (if-hash (',name *packrat-table* :var ,memo-table :place t)
-                      ;; Values already stored. Check whether the current function call is memoized.
-                      (if-hash ((list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) ,memo-table :var ,values)
-                               (progn
-                                 (setf ,memo t)
-                                 (return-from ,blockname (apply #'values ,values))))
-                      ;; No values stored, create hash table
-                      (setf ,memo-table (make-hash-table :test 'equalp))))
+           ;; Are any values already stored for the current function?
+           (if-hash (',name *packrat-table* :var ,memo-table :place t)
+                    ;; Values already stored. Check whether the current function call is memoized.
+                    (if-hash ((list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) ,memo-table :var ,values)
+                             (progn
+                               (setf ,memo t)
+                               (return-from ,blockname (apply #'values ,values))))
+                    ;; No values stored, create hash table
+                    (setf ,memo-table (make-hash-table :test 'equalp)))
            ;; Run the body, results in a list
            (let ((,values (multiple-value-list (progn ,@body))))
              ;; Store the results in the packrat table, if necessary
-             (when *packrat-table*
-               (setf (gethash (list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) (gethash ',name *packrat-table*)) ,values))
+             (setf (gethash (list ,pos (list ,@(lambda-list-vars lambda-list)) (list ,@external-bindings)) (gethash ',name *packrat-table*)) ,values)
              ;; Return the results again as multiple values
              (apply #'values ,values)))
         `(progn ,@body))))
