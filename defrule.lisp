@@ -632,7 +632,7 @@
                    ;; Bind special variables from the (:let ...) option
                    (with-special-vars-from-options ,specials
                      ;; Save the previous parsing position
-                     (let ((,oldpos (treepos-copy ,pos)))
+                     (let ((,pos (treepos-copy ,pos)) (,oldpos (treepos-copy ,pos)))
                        ;; Print tracing information
                        (with-tracing (,name ,oldpos ,memo)
                          ;; Memoization (packrat parsing)
