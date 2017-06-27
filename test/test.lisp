@@ -133,6 +133,36 @@
 (defrule loop-post-iteration () (or loop-control loop-action))
 (defrule loop () (and (? loop-name) (* loop-iteration) (* loop-post-iteration)))
 
+(defrule url () (or url-generic url-httpaddress))
+(defrule url-generic () (and url-scheme ":" url-path (? (and "?" url-search))))
+(defrule url-scheme () url-ialpha (:string))
+(defrule url-httpaddress () (and "http://" url-hostport (? (and #\/ url-path)) (? (and #\? url-search)))
+  (:destructure (scheme (host port) path search)
+                (list scheme
+                      host
+                      (if port (second port))
+                      (if path (second path))
+                      (if search (second search)))))
+(defrule url-hostport () (and url-host (? (and #\: url-port))))
+(defrule url-host () (or url-hostname url-hostnumber) (:string))
+(defrule url-hostname () (and url-ialpha (? (and #\. url-hostname))))
+(defrule url-hostnumber () (and url-digits #\. url-digits #\. url-digits #\. url-digits))
+(defrule url-port () url-digits (:string) (:function #'parse-integer))
+(defrule url-path () (and url-xpalphas (? (and #\/ url-path))) (:string))
+(defrule url-search () (and url-xalphas (? (and #\+ url-search))) (:destructure (str more) (append (list str) (if more (second more)))))
+(defrule url-xalpha () (or url-alpha url-digit url-safe url-extra url-escape))
+(defrule url-xalphas () (+ url-xalpha) (:string))
+(defrule url-xpalpha () (or url-xalpha #\+))
+(defrule url-xpalphas () (+ url-xpalpha))
+(defrule url-ialpha () (and url-alpha (? url-xalphas)))
+(defrule url-alpha () char (:test (x) (alpha-char-p x)))
+(defrule url-digit () char (:test (x) (digit-char-p x)))
+(defrule url-digits () (+ url-digit))
+(defrule url-safe () (or #\$ #\- #\_ #\@ #\. #\&))
+(defrule url-extra () (or #\! #\* #\" #\' #\( #\) #\; #\, #\Space))
+(defrule url-escape () (and #\% url-hex url-hex))
+(defrule url-hex () (or url-digit #\a #\b #\c #\d #\e #\f #\A #\B #\C #\D #\E #\F))
+
 ;; ----- Helpers ----------------------------------------
 
 (defun xnor (&rest forms)
@@ -718,6 +748,10 @@
     (test-parseq 'loop '(for i across vec when (> i 0) collecting it into q and summing i into n else maximize i into m and return 5 end) t)
     (test-parseq 'loop '(for i across vec unless (minusp i) count i into q) t)))
 
+(define-test url-test ()
+  (check
+    (test-parseq 'url "http://github.com:22/mrossini-ethz/parseq?foo+bar+baz" t '("http://" "github.com" 22 "mrossini-ethz/parseq" ("foo" "bar" "baz")))))
+
 (define-test parseq-test ()
   (check
     (terminal-test)
@@ -745,4 +779,5 @@
     (recursion-test)
     (left-recursion-test)
     (packrat-test)
-    (loop-test)))
+    (loop-test)
+    (url-test)))
