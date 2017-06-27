@@ -93,6 +93,16 @@
 (defrule left-recursion-indirect () (and (? 'b) left-recursion-indirect-2))
 (defrule left-recursion-indirect-2 () (and (? 'b) left-recursion-indirect))
 
+(defrule packrat-symbol () symbol (:packrat t))
+(defrule packrat-symbol-user () (+ packrat-symbol))
+(defrule packrat-a (a b c) 'a (:external x y z) (:constant (list a b c x y z)) (:packrat t))
+(defrule packrat-b () 'b (:packrat t))
+(defrule packrat-ab (a b c) (and (packrat-a a b c) packrat-b))
+(defrule packrat-ab-2 (a b c) (and (packrat-a a b c) packrat-b) (:let (z 7)))
+(defrule packrat-abc-1 () (or (and (packrat-ab 1 2 3) 'c) (packrat-ab 1 2 3)) (:let (x 4) (y 5) (z 6)))
+(defrule packrat-abc-2 () (or (and (packrat-ab 1 2 3) 'c) (packrat-ab 1 2 4)) (:let (x 4) (y 5) (z 6)))
+(defrule packrat-abc-3 () (or (and (packrat-ab 1 2 3) 'c) (packrat-ab-2 1 2 3)) (:let (x 4) (y 5) (z 6)))
+
 (defrule loop-name () (and 'named symbol))
 (defrule loop-iteration-with () (and 'with symbol '= form (* (and 'and symbol '= form))))
 (defrule loop-iteration-up () (and (? (and (or 'from 'upfrom) form)) (? (and (or 'upto 'to 'below) form))))
@@ -684,6 +694,13 @@
     (condition= (parseq 'left-recursion-indirect '(a a a)) left-recursion-error)
     (condition= (parseq 'left-recursion '(a a a)) left-recursion-error)))
 
+(define-test packrat-test ()
+  (check
+    (test-parseq 'packrat-symbol-user '(a b c) t '(a b c))
+    (test-parseq 'packrat-abc-1 '(a b) t '((1 2 3 4 5 6) b))
+    (test-parseq 'packrat-abc-2 '(a b) t '((1 2 4 4 5 6) b))
+    (test-parseq 'packrat-abc-3 '(a b) t '((1 2 3 4 5 7) b))))
+
 (define-test loop-test ()
   (check
     (test-parseq 'loop '(named q for a from 0 below 10 by 10) t)
@@ -727,4 +744,5 @@
     (parse-error-test)
     (recursion-test)
     (left-recursion-test)
+    (packrat-test)
     (loop-test)))
