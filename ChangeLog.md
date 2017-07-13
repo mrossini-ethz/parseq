@@ -11,6 +11,12 @@ Parseq uses [semantic versioning](http://semver.org/).
     characters or character ranges in the string argument.
   * Added the processing option `(:choose ...)` that allows to pick items from the result.
 
+### Other
+
+  * Added/updated two code examples:
+    * Parsing of e-mail addresses (update)
+    * Parsing of RFC 5322 dates
+
 ## Version 0.4.1 - 2017-07-16:
 
 ### Bugfixes
