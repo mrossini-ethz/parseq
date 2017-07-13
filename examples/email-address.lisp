@@ -17,10 +17,7 @@
 ;; Parsing expression grammar -------------------------------------------------
 
 ;; Return a list with the local part and the domain.
-(defrule email-address () (and local-part "@" domain)
-  (:lambda (local at domain)
-    (declare (ignore at))
-    (list local domain)))
+(defrule email-address () (and local-part "@" domain) (:choose 0 2))
 
 ;; The  local  part  consists  of   multiple  characters.  The  characters  are
 ;; concatenated to a  string by the (:string) directive. Test  for special case
