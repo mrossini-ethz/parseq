@@ -242,6 +242,17 @@
                (car def))
            def)))
 
+;; Choice
+
+(defun choice-item (treepos tree)
+  "Retrieves an item from the tree by using the given treepointer, or NIL if such a position does not exist."
+  (labels ((recursion (pos idx tree)
+             (cond
+               ((> (- (treepos-depth pos) idx) 1) (if (consp tree) (recursion pos (1+ idx) (nth (nth idx pos) tree))))
+               ((= (- (treepos-depth pos) idx) 1) (if (consp tree) (nth (nth idx pos) tree)))
+               ((= (- (treepos-depth pos) idx) 0) tree))))
+    (recursion (mklist treepos) 0 tree)))
+
 ;; Hash table functions
 
 (defun copy-hash-table (hash-table)

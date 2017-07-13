@@ -519,6 +519,10 @@
   ;; Generates code for handling a (:destructure ...) or (:lambda ...) rule option
   `(destructuring-bind ,destruct-lambda (mklist ,result) ,@body))
 
+(defun expand-choice (indices result)
+  (with-gensyms (var list)
+    `(loop for ,var in (list ,@indices) with ,list = (mklist ,result) collect (choice-item ,var ,list))))
+
 (defun expand-processing-options (result procs)
   ;; Generates code for handling rule options
   (with-gensyms (blockname tmp)
@@ -533,6 +537,7 @@
                       ((and (l= opt 2) (eql (first opt) :constant)) `(setf ,tmp ,(second opt)))
                       ((and (l> opt 1) (eql (first opt) :lambda) (listp (second opt))) `(setf ,tmp ,(expand-destructure (second opt) tmp (cddr opt))))
                       ((and (l> opt 1) (eql (first opt) :destructure) (listp (second opt))) `(setf ,tmp ,(expand-destructure (second opt) tmp (cddr opt))))
+                      ((and (l> opt 1) (eql (first opt) :choose)) `(setf ,tmp ,(expand-choice (rest opt) tmp)))
                       ((and (l= opt 2) (eql (first opt) :function)) `(setf ,tmp (apply ,(second opt) (mklist ,tmp))))
                       ((and (l= opt 2) (eql (first opt) :identity)) `(unless ,(second opt) (setf ,tmp nil)))
                       ((and (l= opt 1) (eql (first opt) :flatten)) `(setf ,tmp (if (listp ,tmp) (flatten ,tmp) (list ,tmp))))
@@ -552,9 +557,9 @@
             when (eql (first ,opt) :external) append (rest ,opt) into ,externals
             when (eql (first ,opt) :let) append (rest ,opt) into ,specials
             when (and (l= ,opt 2) (eql (first ,opt) :packrat)) do (setf ,pckrt (not (not (second ,opt))))
-            when (have (first ,opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not))
+            when (have (first ,opt) '(:constant :lambda :destructure :choose :function :identity :flatten :string :vector :test :not))
             collect ,opt into ,processing
-            when (not (have (first ,opt) '(:constant :lambda :destructure :function :identity :flatten :string :vector :test :not :external :let :packrat)))
+            when (not (have (first ,opt) '(:constant :lambda :destructure :function :choose :identity :flatten :string :vector :test :not :external :let :packrat)))
             do (f-error processing-options-error () "Invalid processing option ~s in rule definition for ~a." (first ,opt) ,name)
             finally (return (values ,specials ,externals ,processing ,pckrt)))
        ,@body)))

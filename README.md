@@ -336,6 +336,13 @@ The following forms can be used to process the result in whatever way.
 The new parsing result is given by what the last form returns.
 Note that `:lambda` and `:destructure` are actually synonyms.
 
+#### Choose
+```
+(:choose 1 3 '(4 1))
+```
+Picks items from the parsing result and returns them.
+For the parsing result `(a b c d (e f g) h)` the above processing option would return `(b d f)`.
+
 #### Function
 ```
 (:function #'+)

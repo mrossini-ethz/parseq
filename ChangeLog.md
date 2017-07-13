@@ -9,6 +9,7 @@ Parseq uses [semantic versioning](http://semver.org/).
   * New terminals `stdchar`, `alpha`, `digit` and `alphanumeric`.
   * New terminal `(char ...)` that accepts a character from the
     characters or character ranges in the string argument.
+  * Added the processing option `(:choose ...)` that allows to pick items from the result.
 
 ## Version 0.4.1 - 2017-07-16:
 
