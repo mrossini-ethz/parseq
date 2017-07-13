@@ -128,6 +128,11 @@ Literal values can be specified to match specific items or subsequences in the s
  * `#(1 2 3)` matches the the subsequence `#(1 2 3)` in a vector or the item `#(1 2 3)` in a list
  * `5` matches the number 5
 
+Terminal expressions allow for mor elaborate specifications:
+
+ * `(char "a-zA-D7-9.,;<=>-")` matches any character from the characters or character ranges in the
+   given string
+
 More terminals may be available in later versions of parseq.
 
 ## Nonterminals

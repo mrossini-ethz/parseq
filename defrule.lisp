@@ -139,6 +139,32 @@
 
 ;; Expansion functions -----------------------------------------------
 
+(defvar *ascii-standard-chars* (list #\Newline #\  #\! #\" #\# #\$ #\% #\& #\' #\( #\) #\* #\+ #\, #\- #\. #\/
+                                     #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\: #\; #\< #\= #\> #\? #\@ #\A #\B
+                                     #\C #\D #\E #\F #\G #\H #\I #\J #\K #\L #\M #\N #\O #\P #\Q #\R #\S #\T #\U
+                                     #\V #\W #\X #\Y #\Z #\[ #\\ #\] #\^ #\_ #\` #\a #\b #\c #\d #\e #\f #\g #\h
+                                     #\i #\j #\k #\l #\m #\n #\o #\p #\q #\r #\s #\t #\u #\v #\w #\x #\y #\z #\{
+                                     #\| #\} #\~))
+
+(defun expand-regexp-bracket-expression (expr)
+  (concatenate 'string
+               (delete-duplicates
+                (loop for i upfrom 0 below (length expr) for last = ch for ch = (elt expr i)
+                   append
+                     (cond
+                       ((and (char= ch #\-) (zerop i)) (list #\-))
+                       ((and (char= ch #\-) (= i (1- (length expr)))) (list #\-))
+                       ((char= ch #\-)
+                        (let* ((next (elt expr (1+ i)))
+                               (a (position last *ascii-standard-chars*))
+                               (b (position next *ascii-standard-chars*)))
+                          (when (< b a)
+                            (f-error invalid-terminal-error () "Invalid character range: \"~c-~c\"" last next))
+                          (incf i 1)
+                          (subseq *ascii-standard-chars* (1+ a) (1+ b))))
+                       (t (list ch))))
+                :test #'char= :from-end t)))
+
 ;; These are helper functions for the defrule macro.
 ;; Therefore, the functions contain macro code and need to be treated as such.
 ;; All take the list that should be parsed as `expr', the parsing `rule',
@@ -214,6 +240,15 @@
          ((symbol= rule 'string) `(test-and-advance ',rule ,expr ,pos (stringp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
          ;; Is a call to another rule (without args)
          (t `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))))
+      ;; Is a list
+      ((consp rule)
+       (cond
+         ;; Is the expression '(char ...)'
+         ((and (l= rule 2) (symbol= (first rule) 'char) (stringp (second rule)))
+          `(test-and-advance ',rule ,expr ,pos (let ((,item (treeitem ,pos ,expr)))
+                                                 (and (characterp ,item) (find ,item ,(expand-regexp-bracket-expression (second rule)))))
+                             (treeitem ,pos ,expr)))
+         (t (f-error invalid-terminal-error () "Unknown terminal: ~s" rule))))
       (t (f-error invalid-terminal-error () "Unknown terminal: ~s (of type ~a)" rule (type-of rule))))))
 
 (defun expand-or (expr rule pos args)
@@ -472,6 +507,8 @@
     ((atom rule) (expand-atom expr rule pos args))
     ;; ... a quoted symbol
     ((quoted-symbol-p rule) (expand-atom expr rule pos args))
+    ;; ... a character expression
+    ((and (consp rule) (symbol= (first rule) 'char)) (expand-atom expr rule pos args))
     ;; ... a list expression like (symbol ...)
     ((and (consp rule) (symbolp (first rule))) (expand-list-expr expr rule pos args))
     (t (f-error invalid-operation-error () "Invalid operation ~s" rule))))
