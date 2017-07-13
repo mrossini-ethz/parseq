@@ -338,10 +338,11 @@ Note that `:lambda` and `:destructure` are actually synonyms.
 
 #### Choose
 ```
-(:choose 1 3 '(4 1))
+(:choose 0 2 '(3 1))
 ```
-Picks items from the parsing result and returns them.
-For the parsing result `(a b c d (e f g) h)` the above processing option would return `(b d f)`.
+Picks items from the parsing result using the given indices and returns them.
+For the parsing result `(15 #\: 24 (#\: 57))` (which might be the parsing result of a time string), the above processing option would return `(15 24 57)`.
+Non-existent items will result in `NIL` being returned for them.
 
 #### Function
 ```
