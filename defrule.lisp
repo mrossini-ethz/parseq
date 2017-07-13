@@ -148,55 +148,73 @@
 
 (defun expand-atom (expr rule pos args)
   ;; Generates code that parses a lisp atom.
-  (cond
-    ;; Is a quoted symbol
-    ((quoted-symbol-p rule) `(test-and-advance ,rule ,expr ,pos (symbol= (treeitem ,pos ,expr) ,rule) (treeitem ,pos ,expr)))
-    ;; Is a character
-    ((characterp rule) `(test-and-advance ,rule ,expr ,pos (and (characterp (treeitem ,pos ,expr)) (char= (treeitem ,pos ,expr) ,rule)) (treeitem ,pos ,expr)))
-    ;; Is a string
-    ((stringp rule) `(test-and-advance ,rule ,expr ,pos (if (stringp (treeitem (treepos-copy ,pos -1) ,expr))
-                                                      ;; We are parsing a string, so match substring
-                                                      (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
-                                                      ;; We are not parsing a string, match the whole item
-                                                      (and (stringp (treeitem ,pos ,expr)) (string= (treeitem ,pos ,expr) ,rule)))
-                                       ,rule (if (stringp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
-    ;; Is a vector
-    ((vectorp rule) `(test-and-advance ,rule ,expr ,pos (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr))
-                                                      ;; We are parsing a vector, match the subsequence
-                                                      (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
-                                                      ;; We are not parsing a vector, match the whole item
-                                                      (equalp (treeitem ,pos ,expr) ,rule))
-                                       ,rule (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
-    ;; Is a number
-    ((numberp rule) `(test-and-advance ,rule ,expr ,pos (and (numberp (treeitem ,pos ,expr)) (= ,rule (treeitem ,pos ,expr))) ,rule))
-    ;; Is a symbol
-    ((symbolp rule)
-     (cond
-       ;; Is a lambda variable. Since we don't know what the value is at compile time, we have to dispatch at runtime
-       ((have rule args) `(try-and-advance (runtime-dispatch ,expr ,rule ,pos) ,pos))
-       ;; Is the symbol 't'
-       ((eql rule t) `(test-and-advance ,rule ,expr ,pos (not (null (treeitem ,pos ,expr))) (treeitem ,pos ,expr)))
-       ;; Is the symbol 'nil'
-       ((null rule) `(test-and-advance ,rule ,expr ,pos (null (treeitem ,pos ,expr)) nil))
-       ;; Is the symbol 'char'
-       ((symbol= rule 'char) `(test-and-advance ',rule ,expr ,pos (characterp (treeitem ,pos ,expr)) (treeitem ,pos, expr)))
-       ;; Is the symbol 'byte'
-       ((symbol= rule 'byte) `(test-and-advance ',rule ,expr ,pos (unsigned-byte-p (treeitem ,pos ,expr)) (treeitem ,pos ,expr)))
-       ;; Is the symbol 'symbol'
-       ((symbol= rule 'symbol) `(test-and-advance ',rule ,expr ,pos (symbolp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-       ;; Is the symbol 'form'
-       ((symbol= rule 'form) `(test-and-advance ',rule ,expr ,pos t (treeitem ,pos, expr)))
-       ;; Is the symbol 'list'
-       ((symbol= rule 'list) `(test-and-advance ',rule ,expr ,pos (listp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-       ;; Is the symbol 'vector'
-       ((symbol= rule 'vector) `(test-and-advance ',rule ,expr ,pos (vectorp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-       ;; Is the symbol 'number'
-       ((symbol= rule 'number) `(test-and-advance ',rule ,expr ,pos (numberp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-       ;; Is the symbol 'string'
-       ((symbol= rule 'string) `(test-and-advance ',rule ,expr ,pos (stringp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-       ;; Is a call to another rule (without args)
-       (t `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))))
-    (t (f-error invalid-terminal-error () "Unknown terminal: ~s (of type ~a)" rule (type-of rule)))))
+  (with-gensyms (item)
+    (declare (ignorable item))
+    (cond
+      ;; Is a quoted symbol
+      ((quoted-symbol-p rule) `(test-and-advance ,rule ,expr ,pos (symbol= (treeitem ,pos ,expr) ,rule) (treeitem ,pos ,expr)))
+      ;; Is a character
+      ((characterp rule) `(test-and-advance ,rule ,expr ,pos (and (characterp (treeitem ,pos ,expr)) (char= (treeitem ,pos ,expr) ,rule)) (treeitem ,pos ,expr)))
+      ;; Is a string
+      ((stringp rule) `(test-and-advance ,rule ,expr ,pos (if (stringp (treeitem (treepos-copy ,pos -1) ,expr))
+                                                              ;; We are parsing a string, so match substring
+                                                              (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
+                                                              ;; We are not parsing a string, match the whole item
+                                                              (and (stringp (treeitem ,pos ,expr)) (string= (treeitem ,pos ,expr) ,rule)))
+                                         ,rule (if (stringp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
+      ;; Is a vector
+      ((vectorp rule) `(test-and-advance ,rule ,expr ,pos (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr))
+                                                              ;; We are parsing a vector, match the subsequence
+                                                              (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
+                                                              ;; We are not parsing a vector, match the whole item
+                                                              (equalp (treeitem ,pos ,expr) ,rule))
+                                         ,rule (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
+      ;; Is a number
+      ((numberp rule) `(test-and-advance ,rule ,expr ,pos (and (numberp (treeitem ,pos ,expr)) (= ,rule (treeitem ,pos ,expr))) ,rule))
+      ;; Is a symbol
+      ((symbolp rule)
+       (cond
+         ;; Is a lambda variable. Since we don't know what the value is at compile time, we have to dispatch at runtime
+         ((have rule args) `(try-and-advance (runtime-dispatch ,expr ,rule ,pos) ,pos))
+         ;; Is the symbol 't'
+         ((eql rule t) `(test-and-advance ,rule ,expr ,pos (not (null (treeitem ,pos ,expr))) (treeitem ,pos ,expr)))
+         ;; Is the symbol 'nil'
+         ((null rule) `(test-and-advance ,rule ,expr ,pos (null (treeitem ,pos ,expr)) nil))
+         ;; Is the symbol 'char'
+         ((symbol= rule 'char) `(test-and-advance ',rule ,expr ,pos (characterp (treeitem ,pos ,expr)) (treeitem ,pos, expr)))
+         ;; Is the symbol 'stdchar'
+         ((symbol= rule 'stdchar) `(test-and-advance ',rule ,expr ,pos (let ((,item (treeitem ,pos ,expr)))
+                                                                         (and (characterp ,item) (standard-char-p ,item)))
+                                                     (treeitem ,pos, expr)))
+         ;; Is the symbol 'alpha'
+         ((symbol= rule 'alpha) `(test-and-advance ',rule ,expr ,pos (let ((,item (treeitem ,pos ,expr)))
+                                                                       (and (characterp ,item) (standard-char-p ,item) (alpha-char-p ,item)))
+                                                   (treeitem ,pos ,expr)))
+         ;; Is the symbol 'digit'
+         ((symbol= rule 'digit) `(test-and-advance ',rule ,expr ,pos (let ((,item (treeitem ,pos ,expr)))
+                                                                       (and (characterp ,item) (standard-char-p ,item) (digit-char-p ,item)))
+                                                   (treeitem ,pos ,expr)))
+         ;; Is the symbol 'alphanumeric'
+         ((symbol= rule 'alphanumeric) `(test-and-advance ',rule ,expr ,pos (let ((,item (treeitem ,pos ,expr)))
+                                                                              (and (characterp ,item) (standard-char-p ,item) (alphanumericp ,item)))
+                                                          (treeitem ,pos ,expr)))
+         ;; Is the symbol 'byte'
+         ((symbol= rule 'byte) `(test-and-advance ',rule ,expr ,pos (unsigned-byte-p (treeitem ,pos ,expr)) (treeitem ,pos ,expr)))
+         ;; Is the symbol 'symbol'
+         ((symbol= rule 'symbol) `(test-and-advance ',rule ,expr ,pos (symbolp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+         ;; Is the symbol 'form'
+         ((symbol= rule 'form) `(test-and-advance ',rule ,expr ,pos t (treeitem ,pos, expr)))
+         ;; Is the symbol 'list'
+         ((symbol= rule 'list) `(test-and-advance ',rule ,expr ,pos (listp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+         ;; Is the symbol 'vector'
+         ((symbol= rule 'vector) `(test-and-advance ',rule ,expr ,pos (vectorp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+         ;; Is the symbol 'number'
+         ((symbol= rule 'number) `(test-and-advance ',rule ,expr ,pos (numberp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+         ;; Is the symbol 'string'
+         ((symbol= rule 'string) `(test-and-advance ',rule ,expr ,pos (stringp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+         ;; Is a call to another rule (without args)
+         (t `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))))
+      (t (f-error invalid-terminal-error () "Unknown terminal: ~s (of type ~a)" rule (type-of rule))))))
 
 (defun expand-or (expr rule pos args)
   ;; Generates code that parses an expression using (or ...)

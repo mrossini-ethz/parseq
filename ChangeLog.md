@@ -2,6 +2,12 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
+## Unreleased:
+
+### Features
+
+  * New terminals `stdchar`, `alpha`, `digit` and `alphanumeric`.
+
 ## Version 0.4.1 - 2017-07-16:
 
 ### Bugfixes

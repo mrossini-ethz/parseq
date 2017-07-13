@@ -108,6 +108,10 @@ The following types are item classes:
  * `symbol` stands for any lisp symbol
  * `form` matches literally everything
  * `char` matches any character
+ * `stdchar` matches any standard character, see `(standard-char-p ...)`
+ * `alpha` matches any alphabetic standard character
+ * `digit` matches any numeric standard character
+ * `alphanumeric` matches any alphanumeric standard character
  * `byte` matches any unsigned byte
  * `number` matches any number
  * `list` matches any list
