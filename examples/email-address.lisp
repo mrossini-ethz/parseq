@@ -25,20 +25,13 @@
 ;; The  local  part  consists  of   multiple  characters.  The  characters  are
 ;; concatenated to a  string by the (:string) directive. Test  for special case
 ;; of the "." character (see above).
-(defrule local-part () (+ lpchar)
+(defrule local-part () (+ (char "a-zA-Z0-9._-"))
   (:string)
   (:not (str)
         (or (char= (elt str 0) #\.)
             (char= (elt str (1- (length str))) #\.)
             (search ".." str)
             (> (length str) 64))))
-
-;; Allowed characters  in the local part.  It is faster to  parse any character
-;; and testing it rather than parsing a large set of alternatives, i.e. (or #\a
-;; #\b #\c ...).
-(defrule lpchar () char
-  (:test (x)
-         (find x "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")))
 
 ;; The domain must not be longer than 253 characters (including dots).
 (defrule domain () (and label (* (and "." label)))
@@ -48,16 +41,11 @@
 
 ;; A label may not  start or end with with "-".  The maximum number of
 ;; characters is 63.
-(defrule label () (rep (1 63) dlchar)
+(defrule label () (rep (1 63) (char "a-zA-Z0-9-"))
   (:string)
   (:not (str)
         (or (char= (elt str 0) #\-)
             (char= (elt str (1- (length str))) #\-))))
-
-;; Allowed characters in domain labels. It is faster to parse any character and
-;; test it later than parsing a large set of alternatives.
-(defrule dlchar () char
-  (:test (x) (find x "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-")))
 
 ;; Application ----------------------------------------------------------------
 
