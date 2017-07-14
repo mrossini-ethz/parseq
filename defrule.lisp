@@ -520,8 +520,13 @@
   `(destructuring-bind ,destruct-lambda (mklist ,result) ,@body))
 
 (defun expand-choice (indices result)
+  ;; Generates code for handling a (:choose ...) rule option.
   (with-gensyms (var list)
-    `(loop for ,var in (list ,@indices) with ,list = (mklist ,result) collect (choice-item ,var ,list))))
+    (if (l= indices 1)
+        ;; Return the item
+        `(choice-item ,(first indices) (mklist ,result))
+        ;; Return a list of items
+        `(loop for ,var in (list ,@indices) with ,list = (mklist ,result) collect (choice-item ,var ,list)))))
 
 (defun expand-processing-options (result procs)
   ;; Generates code for handling rule options
