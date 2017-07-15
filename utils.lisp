@@ -182,8 +182,11 @@
   "Retrieves an item from the tree by using the given treepointer."
   (labels ((recursion (pos idx tree)
              (cond
+               ;; Depth not yet reached, descend recursively
                ((> (- (treepos-depth pos) idx) 1) (recursion pos (1+ idx) (elt tree (aref pos idx))))
+               ;; Depth reached, return item
                ((= (- (treepos-depth pos) idx) 1) (elt tree (aref pos idx)))
+               ;; Treepos is NIL, return the entire tree
                ((= (- (treepos-depth pos) idx) 0) tree))))
     (recursion treepos 0 tree)))
 
@@ -244,14 +247,24 @@
 
 ;; Choice
 
+(defun two-way-index (index list)
+  (if (minusp index)
+      (let ((len (list-length list)))
+        (if (minusp (+ len index))
+            nil
+            (nth (+ len index) list)))
+      (nth index list)))
+
 (defun choice-item (treepos tree)
   "Retrieves an item from the tree by using the given treepointer, or NIL if such a position does not exist."
   (labels ((recursion (pos idx tree)
              (cond
-               ((> (- (treepos-depth pos) idx) 1) (if (consp tree) (recursion pos (1+ idx) (nth (nth idx pos) tree))))
-               ((= (- (treepos-depth pos) idx) 1) (if (consp tree) (nth (nth idx pos) tree)))
-               ((= (- (treepos-depth pos) idx) 0) tree))))
-    (recursion (mklist treepos) 0 tree)))
+               ;; Depth not reached, descend recursively
+               ((> (- (treepos-depth pos) idx) 1) (if (consp tree) (recursion pos (1+ idx) (two-way-index (nth idx pos) tree))))
+               ;; Depth reached, return the item
+               ((= (- (treepos-depth pos) idx) 1) (if (consp tree) (two-way-index (nth idx pos) tree))))))
+    (when treepos
+      (recursion (mklist treepos) 0 tree))))
 
 ;; Hash table functions
 
