@@ -13,9 +13,11 @@ Parseq uses [semantic versioning](http://semver.org/).
 
 ### Other
 
-  * Added/updated two code examples:
+  * Added/updated code examples:
     * Parsing of e-mail addresses (update)
     * Parsing of RFC 5322 dates
+    * Parsing of URLs (update)
+    * Parsing of PNG images (binary file)
 
 ## Version 0.4.1 - 2017-07-16:
 
