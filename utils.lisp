@@ -206,27 +206,16 @@
     (incf (aref newpos (1- n)) delta)
     newpos))
 
-(defun treepos-step! (treepos &optional (delta 1))
-  "Modifies the tree pointer, incrementing the tree position."
-  (let ((n (length treepos)))
-    (incf (aref treepos (1- n)) delta)
-    treepos))
-
 (defun treepos-step-down (treepos)
   (let ((result (treepos-copy treepos)))
     (vector-push-extend 0 result)
     result))
 
-(defun treepos-step-down! (treepos)
-  (vector-push-extend 0 treepos)
-  treepos)
-
 (defun treepos> (a b)
   (let ((na (length a)) (nb (length b)))
     (if (= na nb)
         (loop for ia across a for ib across b when (< ia ib) do (return nil) when (> ia ib) do (return t))
-        (and (loop for ia across a for ib across b always (= ia ib))
-             (> na nb)))))
+        (loop for ia across a for ib across b when (> ia ib) do (return t) always (>= ia ib) finally (return (> na nb))))))
 
 (defun treepos= (a b)
   (equalp a b))

@@ -59,7 +59,7 @@
 (defun push-terminal-failure (pos terminal)
   (cond
     ((treepos= pos (car *terminal-failure-list*)) (pushnew terminal (cdr *terminal-failure-list*) :test #'equal))
-    ((treepos> pos (car *terminal-failure-list*)) (setf (car *terminal-failure-list*) pos
+    ((treepos> pos (car *terminal-failure-list*)) (setf (car *terminal-failure-list*) (treepos-copy pos)
                                                         (cdr *terminal-failure-list*) (list terminal))))
   nil)
 
@@ -71,7 +71,7 @@
     `(if (treepos-valid ,pos ,expr)
          (if ,test
              (let ((,tmp ,result))
-               (treepos-step! ,pos ,inc)
+               (setf ,pos (treepos-step ,pos ,inc))
                (values ,tmp t))
              (push-terminal-failure ,pos ,terminal))
          (push-terminal-failure ,pos ,terminal))))
@@ -284,7 +284,7 @@
          (if (treepos-valid ,pos ,expr)
              (let ((,result (treeitem ,pos ,expr)))
                ;; Advance the position by one
-               (treepos-step! ,pos)
+               (setf ,pos (treepos-step ,pos))
                (values ,result t))
              (values nil nil))
          ;; Expression succeeded, which is bad
@@ -358,16 +358,14 @@
 
 (defun expand-sequence (expr rule pos args type-test)
   ;; Generates code that parses an expression using (list ...), (vector ...) or (string ...)
-  (with-gensyms (result success length)
+  (with-gensyms (result success length newpos)
     `(when (and (treepos-valid ,pos ,expr) (funcall #',type-test (treeitem ,pos ,expr)))
-       (let ((,length (treepos-length ,pos ,expr)))
-         ;; Go into the list
-         (treepos-step-down! ,pos)
-         (with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
+       (let ((,length (treepos-length ,pos ,expr)) (,newpos (treepos-step-down ,pos)))
+         (with-expansion-success ((,result ,success) ,expr ,rule ,newpos ,args)
            ;; Success
-           (when (= (treepos-lowest ,pos) ,length)
+           (when (= (treepos-lowest ,newpos) ,length)
              ;; Step out of the list and increment the position
-             (setf ,pos (treepos-step (treepos-copy ,pos -1)))
+             (setf ,pos (treepos-step (treepos-copy ,newpos -1)))
              (values (list ,result) t))
            ;; Failure
            (values nil nil))))))
