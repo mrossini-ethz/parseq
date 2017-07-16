@@ -172,7 +172,49 @@
   (multiple-value-bind (rslt success-p) (parseq expression list :junk-allowed junk-allowed)
     (and (xnor success success-p) (or (not result-p) (funcall test rslt result)))))
 
-;; ----- Tests - ----------------------------------------
+;; ----- Low level tests --------------------------------
+
+(define-test treepos-test ()
+  (check
+    (equalp (make-treepos 1 2 3) #(1 2 3))
+    (equalp (make-treepos) #(0))
+    (condition= (make-treepos -1) error)
+    (equalp (treepos-copy (make-treepos 1 2 3)) (make-treepos 1 2 3))
+    (= (treepos-depth (make-treepos 1 2 3)) 3)
+    (eql (treepos-valid (make-treepos 0) '()) nil)
+    (eql (treepos-valid (make-treepos 0) '(a b)) t)
+    (eql (treepos-valid (make-treepos 1) '(a b)) t)
+    (eql (treepos-valid (make-treepos 2) '(a b)) nil)
+    (eql (treepos-valid (make-treepos 0 0) '(a (b c))) nil)
+    (eql (treepos-valid (make-treepos 1 0) '(a (b c))) t)
+    (eql (treepos-valid (make-treepos 1 1) '(a (b c))) t)
+    (eql (treepos-valid (make-treepos 1 2) '(a (b c))) nil)
+    (eql (treepos-valid (make-treepos 2 0) '(a (b c))) nil)
+    (equal (treeitem #() '(a b c d e)) '(a b c d e))
+    (equal (treeitem (make-treepos) '(a b c d e)) 'a)
+    (equal (treeitem (make-treepos 1 1) '(a (b b2) c d e)) 'b2)
+    (condition= (treeitem (make-treepos 0 1) '(a (b b2) c d e)) error)
+    (condition= (treeitem (make-treepos 1 2) '(a (b b2) c d e)) error)
+    (= (treepos-length (make-treepos 1) '(a (b c) d)) 2)
+    (condition= (treepos-length (make-treepos 0) '(a (b c) d)) generic-parse-error)
+    (equalp (treepos-step (make-treepos 1)) (make-treepos 2))
+    (equalp (treepos-step (make-treepos 1 2 3 4)) (make-treepos 1 2 3 5))
+    (equalp (treepos-step-down (make-treepos 1)) (make-treepos 1 0))
+    (equalp (treepos-step-down (make-treepos 1 2 3 4)) (make-treepos 1 2 3 4 0))
+    (eql (treepos> (make-treepos 1) (make-treepos 1)) nil)
+    (eql (treepos> (make-treepos 2) (make-treepos 1)) t)
+    (eql (treepos> (make-treepos 1) (make-treepos 2)) nil)
+    (eql (treepos> (make-treepos 1 2 3) (make-treepos 1 2 3)) nil)
+    (eql (treepos> (make-treepos 1 2 4) (make-treepos 1 2 3)) t)
+    (eql (treepos> (make-treepos 1 2 4) (make-treepos 1 3 3)) nil)
+    (eql (treepos> (make-treepos 1 2 3) (make-treepos 1 2)) t)
+    (eql (treepos> (make-treepos 1 2 3) (make-treepos 1 3)) nil)
+    (eql (treepos> (make-treepos 1 3) (make-treepos 1 2 3)) t)
+    (eql (treepos> (make-treepos 1 3) (make-treepos 1 3 3)) nil)
+    (eql (treepos= (make-treepos 1 2 3) (make-treepos 1 2 3)) t)
+    (eql (treepos= (make-treepos 1 2 3) (make-treepos 1 2 3 0)) nil)))
+
+;; ----- High level tests -------------------------------
 
 (define-test terminal-test ()
   (check
@@ -754,6 +796,7 @@
 
 (define-test parseq-test ()
   (check
+    (treepos-test)
     (terminal-test)
     (and-test)
     (and~-test)
