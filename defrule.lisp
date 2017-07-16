@@ -409,17 +409,17 @@
            (setf ,pos ,oldpos)
            (values ,result nil))))))
 
-(defun expand-sequence (expr rule pos args type-test)
+(defun expand-sequence (expr rules pos args type-test)
   ;; Generates code that parses an expression using (list ...), (vector ...) or (string ...)
   (with-gensyms (result success length newpos)
     `(when (and (treepos-valid ,pos ,expr) (funcall #',type-test (treeitem ,pos ,expr)))
        (let ((,length (treepos-length ,pos ,expr)) (,newpos (treepos-step-down ,pos)))
-         (with-expansion-success ((,result ,success) ,expr ,rule ,newpos ,args)
+         (with-expansion-success ((,result ,success) ,expr (and ,@rules) ,newpos ,args)
            ;; Success
            (when (= (treepos-lowest ,newpos) ,length)
              ;; Step out of the list and increment the position
              (setf ,pos (treepos-step (treepos-copy ,newpos -1)))
-             (values (list ,result) t))
+             (values ,result t))
            ;; Failure
            (values nil nil))))))
 
@@ -479,16 +479,16 @@
            (expand-! expr (second rule) pos args)
            (f-error invalid-operation-error () "Invalid (! ...) expression.")))
     ;; list
-    (list (if (l= rule 2)
-              (expand-sequence expr (second rule) pos args 'listp)
+    (list (if (l> rule 1)
+              (expand-sequence expr (rest rule) pos args 'listp)
               (f-error invalid-operation-error () "Invalid (list ...) expression.")))
     ;; string
-    (string (if (l= rule 2)
-                (expand-sequence expr (second rule) pos args 'stringp)
+    (string (if (l> rule 1)
+                (expand-sequence expr (rest rule) pos args 'stringp)
                 (f-error invalid-operation-error () "Invalid (string ...) expression.")))
     ;; vector
-    (vector (if (l= rule 2)
-                (expand-sequence expr (second rule) pos args 'vectorp)
+    (vector (if (l> rule 1)
+                (expand-sequence expr (rest rule) pos args 'vectorp)
                 (f-error invalid-operation-error () "Invalid (vector ...) expression.")))
     ;; repetition
     (rep (if (l> rule 2)

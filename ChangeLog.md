@@ -10,6 +10,8 @@ Parseq uses [semantic versioning](http://semver.org/).
   * New terminal `(char ...)` that accepts a character from the
     characters or character ranges in the string argument.
   * Added the processing option `(:choose ...)` that allows to pick items from the result.
+  * Extended the `(list ...)`, `(string ...)` and `(vector ...)` parsing expressions to
+    accept more than one argument (implicit `AND`).
 
 ### Other
 

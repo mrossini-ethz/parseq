@@ -265,14 +265,12 @@ The *n*-th list within the list contains the results of the *n*-th subexpression
 
 ### Nesting
 ```
-(list subexpression)
-(string subexpression)
-(vector subexpression)
+(list subexpr-1 subexpr-2 ...)
+(string subexpr-1 subexpr-2 ...)
+(vector subexpr-1 subexpr-2 ...)
 ```
-Succeeds if the current item in the sequence is a list/string/vector and its content matches the subexpression.
-Returns a list enclosing the subexpression result.
-
-Note: In the future, the result may be returned without the enclosing list.
+Succeeds if the current item in the sequence is a list/string/vector and its content matches the subexpressions in sequence.
+Returns a list enclosing the subexpression results.
 
 ## Rule parameters
 Often, rules are similar to each other. For example
