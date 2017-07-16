@@ -1,6 +1,6 @@
 (defsystem "parseq"
   :description "A parser for sequences such as strings, lists, vectors as well as trees."
-  :version "0.4.0"
+  :version "0.4.1"
   :author "Marco Rossini"
   :license "GPLv2"
   :serial t

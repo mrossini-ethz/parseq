@@ -2,6 +2,16 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
+## Version 0.4.1 - 2017-07-16:
+
+### Bugfixes
+
+  * Fixed error reporting in several cases:
+    * When a rule fails due to `(:test ...)` or `(:not ...)` processing options and there are no alternatives.
+    * When there are several alternatives of terminals, the list is now printed more nicely.
+    * When parsing trees, the alternatives of terminals are not dropped anymore.
+  * The omission of a symbol export was fixed.
+
 ## Version 0.4.0 - 2017-06-27:
 
 ### Features
