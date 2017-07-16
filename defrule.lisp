@@ -34,7 +34,7 @@
                   (let ((fail-pos (car *terminal-failure-list*)) (terminals (reverse (cdr *terminal-failure-list*))))
                     (if terminals
                         (f-error parse-match-error (:position fail-pos :terminals terminals)
-                                 "Parse error: Expected ~{~s~^ or ~} at position ~a." terminals (treepos-str fail-pos))
+                                 "Parse error: Expected ~:[~;~:*~{~s~^, ~} or ~]~s at position ~a." (butlast terminals) (last-1 terminals) (treepos-str fail-pos))
                         (f-error parse-match-error (:position fail-pos :terminals terminals)
                                  "Parse error at position ~a." (treepos-str fail-pos))))
                   (f-error parse-junk-error () "Parse error: Junk at the end of the sequence starting at position ~a." (treepos-str newpos)))
