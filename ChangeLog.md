@@ -12,6 +12,10 @@ Parseq uses [semantic versioning](http://semver.org/).
     * When parsing trees, the alternatives of terminals are not dropped anymore.
   * The omission of a symbol export was fixed.
 
+### Other
+
+  * Added an example that parses e-mail addresses
+
 ## Version 0.4.0 - 2017-06-27:
 
 ### Features
