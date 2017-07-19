@@ -2,11 +2,14 @@
 
 ## Description
 Parseq (pronounced [parsec](https://en.wikipedia.org/wiki/Parsec)) is a parsing library for common lisp.
-It can be used for parsing lisp's sequences types: strings, binary data, lists and vectors.
-Furthermore, parseq is able to parse nested structures such as trees (e.g. lists of lists, lists of vectors, 1D arrays of strings).
-Parseq uses [parsing expression grammars](https://en.wikipedia.org/wiki/Parsing_expression_grammar) (PEG) that can be defined through a simple interface.
-These PEG can be parameterised and made context aware.
-Additionally, the parsing tree can be transformed arbitrarily.
+It can be used for parsing lisp's sequences types: strings, vectors (e.g. binary data) and lists.
+Furthermore, parseq is able to parse nested structures such as trees (e.g. lists of lists, lists of vectors, vectors of strings).
+
+Parseq uses [parsing expression grammars](https://en.wikipedia.org/wiki/Parsing_expression_grammar) (PEG)
+that can be defined through a simple interface.
+Extensions to the standard parsing expressions are available.
+Parsing expressions can be parameterised and made context aware.
+Additionally, the definition of each parsing expression allows the arbitrary transformation of the parsing tree.
 
 The library is inspired by [Esrap](https://nikodemus.github.io/esrap/) and uses a very similar interface.
 No code is shared between the two projects, however.
@@ -15,21 +18,21 @@ Any resemblance to [esrap-liquid](https://github.com/mabragor/esrap-liquid) is m
 
 The library is still under development.
 This means that some features are not yet implemented and that the interface and behaviour may change in the future.
-See the warnings below.
+See the warnings [below](#warnings).
 
 ### Features
 Parseq provides the following features:
 
- * Parses strings, binary data, vectors and lists
+ * Parses strings, vectors (e.g. binary data) and lists
  * Allows parsing of sequences within sequences (e.g. trees, strings within lists, ...)
  * Simple interface, very similar to [Esrap](https://nikodemus.github.io/esrap/)
  * Provides many specific and non-specific terminal symbols
  * Implements the standard [PEG expressions](https://en.wikipedia.org/wiki/Parsing_expression_grammar) as well as useful extensions
  * [Packrat parsing](https://github.com/mrossini-ethz/parseq/wiki/Packrat-Parsing) can be enabled for individual PEG rules
  * Parsing expression rules are compiled
- * Parse trees can be transformed during parsing
+ * Parse tree transformations can be defined together with each PEG rule
  * Grammars can be made context aware:
-   * Run parse results through lisp code to influence parsing success
+   * Run parse results of a PEG rule through lisp code to influence parsing success
    * Share data between parse rules
  * Parsing rules can be parameterised
  * Uses separate namespace(s) for parse rules
@@ -44,19 +47,17 @@ First, define a set of grammar rules:
 (defrule bar () "bar")
 (defrule foobar () (and foo bar))
 ```
-The first argument to `(defrule ...)` is the nonterminal symbol that the rule represents.
+The first argument to `(defrule ...)` is the nonterminal symbol that will represent the rule.
 These symbols use a different namespace from everything else.
-The second argument is a list of arguments that the rule takes (none in this example).
+The second argument is a list of parameters that the rule takes (none in this example).
 The third argument specifies the definition of the nonterminal symbol.
+After the third argument, multiple [processing options](#processing-options) can be listed.
+
 In this example, the nonterminal `foo` requires the parsing of the string `"foo"`.
 The rule `foobar` combines the two rules `foo` and `bar` to match the string `"foobar"`, the list `("foo" "bar")` or the vector `#("foo" "bar")`.
 The above example could alternatively be stated as
 ```
 (defrule foobar () (and "foo" "bar"))
-```
-or even
-```
-(defrule foobar () "foobar")
 ```
 thus not requiring the rules `foo` and `bar`.
 
@@ -69,24 +70,35 @@ If parsing is not successful, `NIL` is returned.
 The first argument to `(parseq ...)` is a nonterminal symbol defined through `defrule`.
 Note that the symbol must be quoted.
 The second argument is the sequence that should be parsed.
+There are optional keyword parameters to `(parseq ...)`:
+
+  * `:start`: the position in the sequence at which parsing should start
+  * `:end`: the position in the sequence at which parsing should stop
+  * `:junk-allowed`: when set to `t`, will avoid a parsing error, if the end is not reached
+  * `:parse-error`: when set to `t`, a parsing error will signal a error
 
 This concludes the basic usage of the library. Almost everything is done through `defrule` and `parseq`.
 There are some extra arguments, however, that are explained below.
 
 ## Installation
-Parseq is (soon) available with [quicklisp](https://www.quicklisp.org/beta/).
+Parseq is available with [quicklisp](https://www.quicklisp.org/beta/).
 You can run
 ```
 (ql:quickload :parseq)
 ```
-in the REPL. Alternatively the system can be loaded through ASDF:
-```
-(require :asdf)
-(asdf:load-system :parseq)
-```
-To access the symbols from the package without the `parseq:` prefix you can
+in the REPL to download and install it.
+To access the symbols from the package without the `parseq:` prefix you can type
 ```
 (use-package :parseq)
+```
+
+Alternatively, the system is can be downloaded/cloned from [GitHub](https://github.com/mrossini-ethz/parseq).
+The `master` branch will always point to the latest release.
+If the system can be found through [ASDF](https://common-lisp.net/project/asdf/), the system can be loaded by typing the following expressions in the REPL:
+```
+(require :asdf)                ; unless already loaded
+(asdf:load-system :parseq)
+(use-package :parseq)          ; optional
 ```
 
 ## Terminals
@@ -272,7 +284,7 @@ Note, however, that since the rule argument is unknown at compile time, a runtim
 It is possible to pass multiple arguments, keywords etc.
 The full syntax of lambda lists is allowed.
 
-## Rule options
+## Processing options
 There are several options that can be specified for each rule definition.
 The options can have several effects which are described below.
 
