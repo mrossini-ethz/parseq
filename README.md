@@ -105,7 +105,8 @@ If the system can be found through [ASDF](https://common-lisp.net/project/asdf/)
 Terminals (tokens) are the objects that actually appear in the parsed sequence.
 The following types are item classes:
 
- * `symbol` stands for any lisp symbol
+ * `symbol` matches any lisp symbol
+ * `keyword` matches any lisp keyword
  * `form` matches literally everything
  * `char` matches any character
  * `stdchar` matches any standard character, see `(standard-char-p ...)`
@@ -114,7 +115,9 @@ The following types are item classes:
  * `alphanumeric` matches any alphanumeric standard character
  * `byte` matches any unsigned byte
  * `number` matches any number
+ * `integer` matches any integer
  * `list` matches any list
+ * `cons` matches any cons
  * `vector` matches any vector
  * `string` matches any string
  * `t` matches anything not `nil`

@@ -228,14 +228,20 @@
          ((symbol= rule 'byte) `(test-and-advance ',rule ,expr ,pos (unsigned-byte-p (treeitem ,pos ,expr)) (treeitem ,pos ,expr)))
          ;; Is the symbol 'symbol'
          ((symbol= rule 'symbol) `(test-and-advance ',rule ,expr ,pos (symbolp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+         ;; Is the symbol 'keyword'
+         ((symbol= rule 'keyword) `(test-and-advance ',rule ,expr ,pos (keywordp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
          ;; Is the symbol 'form'
          ((symbol= rule 'form) `(test-and-advance ',rule ,expr ,pos t (treeitem ,pos, expr)))
          ;; Is the symbol 'list'
          ((symbol= rule 'list) `(test-and-advance ',rule ,expr ,pos (listp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+         ;; Is the symbol 'cons'
+         ((symbol= rule 'cons) `(test-and-advance ',rule ,expr ,pos (consp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
          ;; Is the symbol 'vector'
          ((symbol= rule 'vector) `(test-and-advance ',rule ,expr ,pos (vectorp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
          ;; Is the symbol 'number'
          ((symbol= rule 'number) `(test-and-advance ',rule ,expr ,pos (numberp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
+         ;; Is the symbol 'integer'
+         ((symbol= rule 'integer) `(test-and-advance ',rule ,expr ,pos (integerp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
          ;; Is the symbol 'string'
          ((symbol= rule 'string) `(test-and-advance ',rule ,expr ,pos (stringp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
          ;; Is a call to another rule (without args)
