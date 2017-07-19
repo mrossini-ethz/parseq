@@ -292,14 +292,14 @@ The options can have several effects which are described below.
 The result from a parsing rule can be processed.
 Example:
 ```
-(defrule abcde () (and (and a b) c (and d e)))
+(defrule abcde () (and (and 'a 'b) 'c (and 'd 'e)))
 (parseq 'abcde '(a b c d e))
 ```
 would normally return `((a b) c (d e))`.
 To process the result, options can be specified in the call to `defrule`.
 For example, if you want the resulting list flattened, the rule can be altered to
 ```
-(defrule abcde () (and (and a b) c (and d e)) (:flatten))
+(defrule abcde () (and (and 'a 'b) 'c (and 'd 'e)) (:flatten))
 ```
 such that parsing `(a b c d e)` yields `(a b c d e)` instead of `((a b) c (d e))`.
 
