@@ -86,7 +86,7 @@ You can run
 ```
 (ql:quickload :parseq)
 ```
-in the REPL to download and install it.
+in the REPL to download, install and load it.
 To access the symbols from the package without the `parseq:` prefix you can type
 ```
 (use-package :parseq)
@@ -265,7 +265,7 @@ Returns a list enclosing the subexpression result.
 
 Note: In the future, the result may be returned without the enclosing list.
 
-## Rule arguments
+## Rule parameters
 Often, rules are similar to each other. For example
 ```
 (defrule html-a () "<a>")
@@ -278,10 +278,10 @@ In parseq, this can be generalised with
 (defrule html-tag (name) (and "<" name ">")
 ```
 and used in parsing expressions as `(html-tag "a")` instead of having to define each rule separately.
-The arguments can also be used in the parse options (see below).
-Note, however, that since the rule argument is unknown at compile time, a runtime dispatch will need to be performed on the argument type.
+The parameters can also be used in the parse options (see below).
+Note, however, that since the rule parameter is unknown at compile time, a runtime dispatch will need to be performed on the parameter type.
 
-It is possible to pass multiple arguments, keywords etc.
+It is possible to pass multiple paramters, keywords etc.
 The full syntax of lambda lists is allowed.
 
 ## Processing options
