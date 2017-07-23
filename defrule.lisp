@@ -604,13 +604,16 @@
   ;; Determies, whether a rule is traced or not depending on the given option and the *trace-recursive* parameter.
   (or (plusp trace-option) *trace-recursive*))
 
+(defun is-traced-with-recursion (trace-option)
+  (= trace-option 2))
+
 (defmacro with-tracing ((name pos memo) &body body)
   ;; Wrapper for enabling tracing in parse rules
   (with-gensyms (trace-opt result success newpos)
     ;; Lookup tracing options in the hash table.
     ;; This actually closes over the symbol `name' so the parsing function remembers which name it was defined with.
     `(let* ((,trace-opt (gethash (symbol-name ',name) *trace-rule*))
-            (*trace-recursive* (if (= ,trace-opt 2) t *trace-recursive*))
+            (*trace-recursive* (if (is-traced-with-recursion ,trace-opt) t *trace-recursive*))
             (*trace-depth* (if (is-traced ,trace-opt) (1+ *trace-depth*) *trace-depth*))
             ,memo)
        ;; Print trace start
