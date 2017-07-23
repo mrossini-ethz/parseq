@@ -579,16 +579,10 @@
 
 ;; Special variables (rule bindings) -----------------------------------------
 
-(defmacro with-special-vars ((&rest vars) &body body)
-  ;; Declares the given vars as special. Vars is like the list in the first argument of a let form.
-  `(let (,@vars)
-     (declare (special ,@(loop for v in vars collect (if (listp v) (first v) v))))
-     ,@body))
-
 (defmacro with-special-vars-from-options (bindings &body body)
   ;; Generates code that declares the special variables given in the rule options
   (if bindings
-      `(with-special-vars (,@bindings) ,@body)
+      `(let-special (,@bindings) ,@body)
       `(progn ,@body)))
 
 ;; Trace functions -----------------------------------------------------------
@@ -612,23 +606,23 @@
   (with-gensyms (trace-opt result success newpos)
     ;; Lookup tracing options in the hash table.
     ;; This actually closes over the symbol `name' so the parsing function remembers which name it was defined with.
-    `(let* ((,trace-opt (gethash (symbol-name ',name) *trace-rule*))
-            (*trace-recursive* (if (is-traced-with-recursion ,trace-opt) t *trace-recursive*))
-            (*trace-depth* (if (is-traced ,trace-opt) (1+ *trace-depth*) *trace-depth*))
-            ,memo)
-       ;; Print trace start
-       (when (is-traced ,trace-opt)
-         (format t "~v,0T~d: ~a ~a?~%" (1- *trace-depth*) *trace-depth* ',name (treepos-str ,pos)))
-       ;; Run the code and intercept the return values
-       (multiple-value-bind (,result ,success ,newpos) (progn ,@body)
-         ;; Print the end of the trace
+    `(let ((,trace-opt (gethash (symbol-name ',name) *trace-rule*)) ,memo)
+       (conditional-dynamic-bind ((*trace-recursive* (if (is-traced-with-recursion ,trace-opt) t *trace-recursive*))
+                                  (*trace-depth* (1+ *trace-depth*)))
+           (is-traced ,trace-opt)
+         ;; Print trace start
          (when (is-traced ,trace-opt)
-           ;; Different format depending on success
-           (if ,success
-               (format t "~v,0T~d: ~a ~a-~a -> ~s~:[~; (memoized)~]~%" (1- *trace-depth*) *trace-depth* ',name (treepos-str ,pos) (treepos-str ,newpos) ,result ,memo)
-               (format t "~v,0T~d: ~a -|~:[~; (memoized)~]~%" (1- *trace-depth*) *trace-depth* ',name ,memo)))
-         ;; Return interceptet return values
-         (values ,result ,success ,newpos)))))
+           (format t "~v,0T~d: ~a ~a?~%" (1- *trace-depth*) *trace-depth* ',name (treepos-str ,pos)))
+         ;; Run the code and intercept the return values
+         (multiple-value-bind (,result ,success ,newpos) (progn ,@body)
+           ;; Print the end of the trace
+           (when (is-traced ,trace-opt)
+             ;; Different format depending on success
+             (if ,success
+                 (format t "~v,0T~d: ~a ~a-~a -> ~s~:[~; (memoized)~]~%" (1- *trace-depth*) *trace-depth* ',name (treepos-str ,pos) (treepos-str ,newpos) ,result ,memo)
+                 (format t "~v,0T~d: ~a -|~:[~; (memoized)~]~%" (1- *trace-depth*) *trace-depth* ',name ,memo)))
+           ;; Return interceptet return values
+           (values ,result ,success ,newpos))))))
 
 (defun trace-rule (name &key recursive)
   ;; Function that enables tracing of the given rule

@@ -78,6 +78,20 @@
                           clause
                           `((,test ,key ,(if (symbolp (first clause)) `(quote ,(first clause)) (first clause))) ,@(rest clause))))))))
 
+(defmacro let-special ((&rest vars) &body body)
+  ;; Declares the given vars as special. Vars is like the list in the first argument of a let form.
+  `(let (,@vars)
+     (declare (special ,@(loop for v in vars collect (if (listp v) (first v) v))))
+     ,@body))
+
+(defmacro conditional-dynamic-bind ((&rest bindings) condition &body body)
+  "Establishes the dynamic bindings if condition evaluates to true."
+  (with-gensyms (func)
+    `(flet ((,func () ,@body))
+       (if ,condition
+           (let-special ,bindings (,func))
+           (,func)))))
+
 ;; Generic sequence functions
 
 (defun sequencep (object)

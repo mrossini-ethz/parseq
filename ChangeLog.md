@@ -12,6 +12,7 @@ Parseq uses [semantic versioning](http://semver.org/).
   * Added the processing option `(:choose ...)` that allows to pick items from the result.
   * Extended the `(list ...)`, `(string ...)` and `(vector ...)` parsing expressions to
     accept more than one argument (implicit `AND`).
+  * Reduced the overhead of rule tracing (when disabled).
 
 ### Other
 
