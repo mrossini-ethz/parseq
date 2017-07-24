@@ -697,7 +697,7 @@
                ;; Lambda expression that parses according to the given grammar rule
                (lambda (,sequence ,pos ,@lambda-list)
                  ;; Declare special variables specified in the (:external ...) option
-                 (declare (special ,@externals))
+                 ,@(if externals `((declare (special ,@externals))))
                  ;; Check for left recursion
                  (with-left-recursion-protection (,pos ,last-call-pos)
                    ;; Bind special variables from the (:let ...) option
