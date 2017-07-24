@@ -232,6 +232,8 @@
          ((symbol= rule 'keyword) `(test-and-advance ',rule ,expr ,pos (keywordp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
          ;; Is the symbol 'form'
          ((symbol= rule 'form) `(test-and-advance ',rule ,expr ,pos t (treeitem ,pos, expr)))
+         ;; Is the symbol 'atom'
+         ((symbol= rule 'atom) `(test-and-advance ',rule ,expr ,pos (atom (treeitem ,pos ,expr)) (treeitem, pos, expr)))
          ;; Is the symbol 'list'
          ((symbol= rule 'list) `(test-and-advance ',rule ,expr ,pos (listp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
          ;; Is the symbol 'cons'

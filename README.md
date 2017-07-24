@@ -116,6 +116,7 @@ The following types are item classes:
  * `byte` matches any unsigned byte
  * `number` matches any number
  * `integer` matches any integer
+ * `atom` matches any atom
  * `list` matches any list
  * `cons` matches any cons
  * `vector` matches any vector
