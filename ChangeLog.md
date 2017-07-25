@@ -2,7 +2,7 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
-## Unreleased:
+## Version 0.5.0 - 2017-07-25:
 
 ### Features
 
@@ -16,11 +16,12 @@ Parseq uses [semantic versioning](http://semver.org/).
 
 ### Other
 
-  * Added/updated code examples:
-    * Parsing of e-mail addresses (update)
+  * Added examples:
     * Parsing of RFC 5322 dates
-    * Parsing of URLs (update)
     * Parsing of PNG images (binary file)
+  * Updated examples:
+    * Parsing of e-mail addresses
+    * Parsing of URLs
 
 ## Version 0.4.1 - 2017-07-16:
 
