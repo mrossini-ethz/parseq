@@ -289,8 +289,10 @@ In parseq, this can be generalised with
 (defrule html-tag (name) (and "<" name ">")
 ```
 and used in parsing expressions as `(html-tag "a")` instead of having to define each rule separately.
-The parameters can also be used in the parse options (see below).
+The parameters can also be used in the processing options (see below).
 Note, however, that since the rule parameter is unknown at compile time, a runtime dispatch will need to be performed on the parameter type.
+In the current implementation, only literal terminals and nonterminals are supported as part of the parsing expression.
+This will likely change in the future.
 
 It is possible to pass multiple paramters, keywords etc.
 The full syntax of lambda lists is allowed.
@@ -495,6 +497,7 @@ The rules from outside are saved before entering the body and restored when the 
 ## Upcoming features
 These features _may_ be implemented in the future:
 
+ * Support for rule parameters in parsing expressions other than literal terminals and nonterminals.
  * Short forms for combined nonterminals, e.g.
    * `(? (and ...))`
    * `(? (or ...))`
