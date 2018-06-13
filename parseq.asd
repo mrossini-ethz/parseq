@@ -8,9 +8,9 @@
                (:file "conditions")
                (:file "utils")
                (:file "defrule"))
-  :in-order-to ((test-op (test-op :parseq-test))))
+  :in-order-to ((test-op (test-op :parseq/test))))
 
-(defsystem "parseq-test"
+(defsystem "parseq/test"
   :description "Unit testing for parseq."
   :author "Marco Rossini"
   :license "GPLv2"
@@ -19,5 +19,5 @@
   :components ((:file "test/unit-test")
                (:file "test/test")))
 
-(defmethod perform ((operation test-op) (system (eql (find-system :parseq-test))))
+(defmethod perform ((operation test-op) (system (eql (find-system :parseq/test))))
   (funcall (intern "PARSEQ-TEST" :parseq)))
