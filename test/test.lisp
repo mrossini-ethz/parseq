@@ -588,6 +588,15 @@
     (test-parseq 'nonterminal-string '("bb") nil nil)
     (test-parseq 'nonterminal-string '((#\a #\b)) nil nil)))
 
+(define-test string-type-test ()
+  (check
+    ;; These tests handle the subtle differences that led to the update of #'sequence=.
+    ;; The update fixes every place that deals with strings (defrule too).
+    ;; The observed specific types are enforced to guarantee test portability.
+    (test-parseq 'terminal-string "abc" t "abc")
+    (test-parseq 'terminal-string (coerce "abc" '(simple-array character (3))) t "abc")
+    (test-parseq 'terminal-string (coerce "abc" '(simple-base-string 3)) t "abc")))
+
 (define-test vector-test ()
   (check
     ;; (vector 4)
@@ -880,6 +889,7 @@
     (rep-test)
     (list-test)
     (string-test)
+    (string-type-test)
     (vector-test)
     (parse-test)
     (parameter-test)
