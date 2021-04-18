@@ -98,10 +98,7 @@
   (or (listp object) (vectorp object)))
 
 (defun sequence= (seq-a seq-b &key (start1 0) (start2 0) end1 end2 (test #'eql) (key #'identity))
-  (let ((a (subseq seq-a start1 end1))
-        (b (subseq seq-b start2 end2)))
-    (when (and (= (length a) (length b)) (equal (type-of a) (type-of b)))
-      (loop for i below (length a) always (funcall test (funcall key (elt a i)) (funcall key (elt b i)))))))
+  (null (mismatch seq-a seq-b :start1 start1 :start2 start2 :end1 end1 :end2 end2 :test test :key key)))
 
 (defun subseq-at (subseq seq pos)
   (let ((len (length subseq)))
