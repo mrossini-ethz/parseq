@@ -5,7 +5,7 @@ Parseq (pronounced [parsec](https://en.wikipedia.org/wiki/Parsec)) is a parsing 
 It can be used for parsing lisp's sequences types: strings, vectors (e.g. binary data) and lists.
 Furthermore, parseq is able to parse nested structures such as trees (e.g. lists of lists, lists of vectors, vectors of strings).
 
-Parseq uses [parsing expression grammars](https://en.wikipedia.org/wiki/Parsing_expression_grammar) (PEG)
+Parseq uses [Bryan Ford's](https://bford.info/) [parsing expression grammars](https://en.wikipedia.org/wiki/Parsing_expression_grammar) ([PEG](https://bford.info/pub/lang/peg/))
 that can be defined through a simple interface.
 Extensions to the standard parsing expressions are available.
 Parsing expressions can be parameterised and made context aware.
@@ -27,7 +27,7 @@ Parseq provides the following features:
  * Allows parsing of sequences within sequences (e.g. trees, strings within lists, ...)
  * Simple interface, very similar to [Esrap](https://nikodemus.github.io/esrap/)
  * Provides many specific and non-specific terminal symbols
- * Implements the standard [PEG expressions](https://en.wikipedia.org/wiki/Parsing_expression_grammar) as well as useful extensions
+ * Implements the standard [PEG expressions](https://bford.info/pub/lang/peg/) as well as useful extensions
  * [Packrat parsing](https://github.com/mrossini-ethz/parseq/wiki/Packrat-Parsing) can be enabled for individual PEG rules
  * Parsing expression rules are compiled
  * Parse tree transformations can be defined together with each PEG rule
