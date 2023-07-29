@@ -494,6 +494,11 @@ Instead of `with-local-rules` the macro `with-saved-rules` can be used:
 Within its body, rules from outside are still defined and can be redefined without affecting the outside.
 The rules from outside are saved before entering the body and restored when the body returns.
 
+## Example code
+There is a collection of real world examples inside the repository [here](https://github.com/mrossini-ethz/parseq/tree/master/examples).
+It is a good place to start if you want to learn about parseq.
+Also check out the library [physical-quantities](https://github.com/mrossini-ethz/physical-quantities) that uses parseq under the hood.
+
 ## Upcoming features
 These features _may_ be implemented in the future:
 
