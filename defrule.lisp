@@ -723,7 +723,7 @@
                              ;; Return nil as parsing result, failure and the old position
                              (values nil nil ,oldpos)))))))))))))
 
-;; Namespace macros -----------------------------------------------------------
+;; Namespace macros and functions ---------------------------------------------
 
 (defmacro with-local-rules (&body body)
   ;; Shadow the global rule table with a new rule table
@@ -739,3 +739,6 @@
          (*trace-rule* (copy-hash-table *trace-rule*)))
      ;; Execute the body
      ,@body))
+
+(defun clear-rules ()
+  (clrhash *rule-table*))

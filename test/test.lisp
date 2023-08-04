@@ -813,6 +813,13 @@
     (with-saved-rules
       (defrule nonterminal-and () (and 'd 'e 'f))
       (test-parseq 'nonterminal-and '(d e f) t '(d e f)))
+    ;; Clear rules
+    (with-saved-rules
+      (test-parseq 'nonterminal-and '(a b c) t '(a b c))
+      (clear-rules)
+      (condition= (parseq 'nonterminal-and '(a b c)) unknown-rule-error)
+      (defrule nonterminal-and () (and 'd 'e 'f))
+      (test-parseq 'nonterminal-and '(d e f) t '(d e f)))
     ;; Sanity check
     (test-parseq 'nonterminal-and '(a b c) t '(a b c))
     (test-parseq 'nonterminal-and '(d e f) nil nil)))
