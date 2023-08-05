@@ -1,5 +1,9 @@
 (in-package :parseq)
 
+;; List of possible terminals with each item being a list of terminal
+;; name, a rule matching function as well as an expansion function.
+(defparameter *terminal-table* nil)
+
 ;; Hash table that maps the rule names (symbols) to the functions
 ;; that parse the corresponding rule. Being a special variable,
 ;; it can be shadowed. This is used in the macro with-local-rules.
@@ -171,93 +175,6 @@
 ;; the current `pos'ition in the list as well as the `arg'uments to the defrule.
 ;; The intent is to generate lisp code for parsing.
 ;; They return two values: The portion of the `expr' that was parsed, and a success value
-
-(defun expand-atom (expr rule pos args)
-  ;; Generates code that parses a lisp atom.
-  (with-gensyms (item)
-    (declare (ignorable item))
-    (cond
-      ;; Is a quoted symbol
-      ((quoted-symbol-p rule) `(test-and-advance ,rule ,expr ,pos (symbol= (treeitem ,pos ,expr) ,rule) (treeitem ,pos ,expr)))
-      ;; Is a character
-      ((characterp rule) `(test-and-advance ,rule ,expr ,pos (and (characterp (treeitem ,pos ,expr)) (char= (treeitem ,pos ,expr) ,rule)) (treeitem ,pos ,expr)))
-      ;; Is a string
-      ((stringp rule) `(test-and-advance ,rule ,expr ,pos (if (stringp (treeitem (treepos-copy ,pos -1) ,expr))
-                                                              ;; We are parsing a string, so match substring
-                                                              (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
-                                                              ;; We are not parsing a string, match the whole item
-                                                              (and (stringp (treeitem ,pos ,expr)) (string= (treeitem ,pos ,expr) ,rule)))
-                                         ,rule (if (stringp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
-      ;; Is a vector
-      ((vectorp rule) `(test-and-advance ,rule ,expr ,pos (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr))
-                                                              ;; We are parsing a vector, match the subsequence
-                                                              (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
-                                                              ;; We are not parsing a vector, match the whole item
-                                                              (equalp (treeitem ,pos ,expr) ,rule))
-                                         ,rule (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
-      ;; Is a number
-      ((numberp rule) `(test-and-advance ,rule ,expr ,pos (and (numberp (treeitem ,pos ,expr)) (= ,rule (treeitem ,pos ,expr))) ,rule))
-      ;; Is a symbol
-      ((symbolp rule)
-       (cond
-         ;; Is a lambda variable. Since we don't know what the value is at compile time, we have to dispatch at runtime
-         ((have rule args) `(try-and-advance (runtime-dispatch ,expr ,rule ,pos) ,pos))
-         ;; Is the symbol 't'
-         ((eql rule t) `(test-and-advance ,rule ,expr ,pos (not (null (treeitem ,pos ,expr))) (treeitem ,pos ,expr)))
-         ;; Is the symbol 'nil'
-         ((null rule) `(test-and-advance ,rule ,expr ,pos (null (treeitem ,pos ,expr)) nil))
-         ;; Is the symbol 'char'
-         ((symbol= rule 'char) `(test-and-advance ',rule ,expr ,pos (characterp (treeitem ,pos ,expr)) (treeitem ,pos, expr)))
-         ;; Is the symbol 'stdchar'
-         ((symbol= rule 'stdchar) `(test-and-advance ',rule ,expr ,pos (let ((,item (treeitem ,pos ,expr)))
-                                                                         (and (characterp ,item) (standard-char-p ,item)))
-                                                     (treeitem ,pos, expr)))
-         ;; Is the symbol 'alpha'
-         ((symbol= rule 'alpha) `(test-and-advance ',rule ,expr ,pos (let ((,item (treeitem ,pos ,expr)))
-                                                                       (and (characterp ,item) (standard-char-p ,item) (alpha-char-p ,item)))
-                                                   (treeitem ,pos ,expr)))
-         ;; Is the symbol 'digit'
-         ((symbol= rule 'digit) `(test-and-advance ',rule ,expr ,pos (let ((,item (treeitem ,pos ,expr)))
-                                                                       (and (characterp ,item) (standard-char-p ,item) (digit-char-p ,item)))
-                                                   (treeitem ,pos ,expr)))
-         ;; Is the symbol 'alphanumeric'
-         ((symbol= rule 'alphanumeric) `(test-and-advance ',rule ,expr ,pos (let ((,item (treeitem ,pos ,expr)))
-                                                                              (and (characterp ,item) (standard-char-p ,item) (alphanumericp ,item)))
-                                                          (treeitem ,pos ,expr)))
-         ;; Is the symbol 'byte'
-         ((symbol= rule 'byte) `(test-and-advance ',rule ,expr ,pos (unsigned-byte-p (treeitem ,pos ,expr)) (treeitem ,pos ,expr)))
-         ;; Is the symbol 'symbol'
-         ((symbol= rule 'symbol) `(test-and-advance ',rule ,expr ,pos (symbolp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-         ;; Is the symbol 'keyword'
-         ((symbol= rule 'keyword) `(test-and-advance ',rule ,expr ,pos (keywordp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-         ;; Is the symbol 'form'
-         ((symbol= rule 'form) `(test-and-advance ',rule ,expr ,pos t (treeitem ,pos, expr)))
-         ;; Is the symbol 'atom'
-         ((symbol= rule 'atom) `(test-and-advance ',rule ,expr ,pos (atom (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-         ;; Is the symbol 'list'
-         ((symbol= rule 'list) `(test-and-advance ',rule ,expr ,pos (listp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-         ;; Is the symbol 'cons'
-         ((symbol= rule 'cons) `(test-and-advance ',rule ,expr ,pos (consp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-         ;; Is the symbol 'vector'
-         ((symbol= rule 'vector) `(test-and-advance ',rule ,expr ,pos (vectorp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-         ;; Is the symbol 'number'
-         ((symbol= rule 'number) `(test-and-advance ',rule ,expr ,pos (numberp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-         ;; Is the symbol 'integer'
-         ((symbol= rule 'integer) `(test-and-advance ',rule ,expr ,pos (integerp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-         ;; Is the symbol 'string'
-         ((symbol= rule 'string) `(test-and-advance ',rule ,expr ,pos (stringp (treeitem ,pos ,expr)) (treeitem, pos, expr)))
-         ;; Is a call to another rule (without args)
-         (t `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))))
-      ;; Is a list
-      ((consp rule)
-       (cond
-         ;; Is the expression '(char ...)'
-         ((and (l= rule 2) (symbol= (first rule) 'char) (stringp (second rule)))
-          `(test-and-advance ',rule ,expr ,pos (let ((,item (treeitem ,pos ,expr)))
-                                                 (and (characterp ,item) (find ,item ,(expand-regexp-bracket-expression (second rule)))))
-                             (treeitem ,pos ,expr)))
-         (t (f-error invalid-terminal-error () "Unknown terminal: ~s" rule))))
-      (t (f-error invalid-terminal-error () "Unknown terminal: ~s (of type ~a)" rule (type-of rule))))))
 
 (defun expand-or (expr rule pos args)
   ;; Generates code that parses an expression using (or ...)
@@ -507,19 +424,74 @@
     ;; a call to another rule (with args)
     (t `(try-and-advance ,(expand-parse-call expr rule pos args) ,pos))))
 
+;; Macro that facilitates the addition of new terminals
+(defmacro define-terminal (name (expr rule pos args) test code)
+  `(setf *terminal-table* (append *terminal-table*
+           (list (list ',name
+                       (lambda (,rule) (declare (ignorable ,rule)) ,test)
+                       (lambda (,expr ,rule ,pos ,args) (declare (ignorable ,expr ,rule ,pos ,args)) ,code))))))
+
+;; Macro that facilitates the addition of simple terminals
+(defmacro define-simple-terminal (name (rule-var item-var &key quote) rule-test item-test)
+  `(define-terminal ,name (expr ,rule-var pos args)
+                    ,rule-test
+                    ,(if (null quote)
+                         ``(test-and-advance ,,rule-var ,expr ,pos ((lambda (,',item-var ,',rule-var) (declare (ignorable ,',item-var ,',rule-var)) ,',item-test) (treeitem ,pos ,expr) ,,rule-var) (treeitem ,pos ,expr))
+                         ``(test-and-advance ',,rule-var ,expr ,pos ((lambda (,',item-var ,',rule-var) (declare (ignorable ,',item-var ,',rule-var)) ,',item-test) (treeitem ,pos ,expr) ',,rule-var) (treeitem ,pos ,expr)))))
+
+;; Symbol terminal (quoted)
+(define-simple-terminal literal-t (rule item) (eql rule t) (not (null item)))
+(define-simple-terminal literal-nil (rule item) (null rule) (null item))
+(define-simple-terminal specific-symbol (rule item) (quoted-symbol-p rule) (symbol= item rule))
+(define-simple-terminal specific-character (rule item) (characterp rule) (and (characterp item) (char= item rule)))
+(define-terminal specific-string (expr rule pos args)
+                 (stringp rule)
+                 `(test-and-advance ,rule ,expr ,pos (if (stringp (treeitem (treepos-copy ,pos -1) ,expr))
+                                                         ;; We are parsing a string, so match substring
+                                                         (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
+                                                         ;; We are not parsing a string, match the whole item
+                                                         (and (stringp (treeitem ,pos ,expr)) (string= (treeitem ,pos ,expr) ,rule)))
+                      ,rule (if (stringp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
+(define-terminal specific-vector (expr rule pos args)
+                 (and (vectorp rule) t)
+                 `(test-and-advance ,rule ,expr ,pos (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr))
+                                                         ;; We are parsing a vector, match the subsequence
+                                                         (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
+                                                         ;; We are not parsing a vector, match the whole item
+                                                         (equalp (treeitem ,pos ,expr) ,rule))
+                      ,rule (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
+(define-simple-terminal specific-number (rule item) (numberp rule) (and (numberp item) (= item rule)))
+(define-simple-terminal character-set (rule item :quote t) (and (listp rule) (l= rule 2) (symbol= (first rule) 'char) (stringp (second rule))) (and (characterp item) (find item (expand-regexp-bracket-expression (second rule)))))
+(define-simple-terminal any-character (rule item :quote t) (symbol= rule 'char) (characterp item))
+(define-simple-terminal any-stdandard-character (rule item :quote t) (symbol= rule 'stdchar) (and (characterp item) (standard-char-p item)))
+(define-simple-terminal any-alpha-character (rule item :quote t) (symbol= rule 'alpha) (and (characterp item) (alpha-char-p item)))
+(define-simple-terminal any-digit-character (rule item :quote t) (symbol= rule 'digit) (and (characterp item) (digit-char-p item)))
+(define-simple-terminal any-alphanumeric-character (rule item :quote t) (symbol= rule 'alphanumeric) (and (characterp item) (standard-char-p item) (alphanumericp item)))
+(define-simple-terminal any-byte (rule item :quote t) (symbol= rule 'byte) (unsigned-byte-p item))
+(define-simple-terminal any-symbol (rule item :quote t) (symbol= rule 'symbol) (symbolp item))
+(define-simple-terminal any-keyword (rule item :quote t) (symbol= rule 'keyword) (keywordp item))
+(define-simple-terminal any-form (rule item :quote t) (symbol= rule 'form) t)
+(define-simple-terminal any-atom (rule item :quote t) (symbol= rule 'atom) (atom item))
+(define-simple-terminal any-list (rule item :quote t) (symbol= rule 'list) (listp item))
+(define-simple-terminal any-cons (rule item :quote t) (symbol= rule 'cons) (consp item))
+(define-simple-terminal any-vector (rule item :quote t) (symbol= rule 'vector) (vectorp item))
+(define-simple-terminal any-number (rule item :quote t) (symbol= rule 'number) (numberp item))
+(define-simple-terminal any-integer (rule item :quote t) (symbol= rule 'integer) (integerp item))
+(define-simple-terminal any-string (rule item :quote t) (symbol= rule 'string) (stringp item))
+
 (defun expand-rule (expr rule pos args)
   ;; Generates code according to the given rule
-  ;; Rule is
+  ;; Expand terminals
+  (loop for expander in *terminal-table* do
+    (destructuring-bind (symb test expand) expander
+      (declare (ignore symb))
+      (when (funcall test rule)
+          (return-from expand-rule (funcall expand expr rule pos args)))))
   (cond
-    ;; ... nil
-    ((null rule) (expand-atom expr nil pos nil))
-    ;; ... an atom
-    ((atom rule) (expand-atom expr rule pos args))
-    ;; ... a quoted symbol
-    ((quoted-symbol-p rule) (expand-atom expr rule pos args))
-    ;; ... a character expression
-    ((and (consp rule) (symbol= (first rule) 'char)) (expand-atom expr rule pos args))
-    ;; ... a list expression like (symbol ...)
+    ;; Expand rules
+    ((and (symbolp rule) (have rule args)) `(try-and-advance (runtime-dispatch ,expr ,rule ,pos) ,pos))
+    ((symbolp rule) `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))
+    ;; Expand non-terminals
     ((and (consp rule) (symbolp (first rule))) (expand-list-expr expr rule pos args))
     (t (f-error invalid-operation-error () "Invalid operation ~s" rule))))
 
