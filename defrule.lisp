@@ -452,6 +452,11 @@
           (runtime-match ,rule-var expr pos (subseq-at ,rule-var (treeitem (treepos-copy pos -1) expr) (treepos-lowest pos)) ,rule-var (length ,rule-var))
           (runtime-match ,rule-var expr pos (and (,seq-test (treeitem pos expr)) (,seq-eql (treeitem pos expr) ,rule-var)) (treeitem pos expr)))))
 
+;; Function to remove terminal definition
+(defun undefine-terminal (name)
+  (setf *terminal-table* (remove name *terminal-table* :key #'first))
+  *terminal-table*)
+
 ;; Define terminals
 (define-simple-terminal literal-t (rule item) (eql rule t) (not (null item)))
 (define-simple-terminal literal-nil (rule item) (null rule) (null item))
