@@ -442,27 +442,22 @@
         ,rule-test
         `(test-and-advance (,',qfun ,,rule-var) ,expr ,pos ((lambda (,',rule-var ,',item-var) (declare (ignorable ,',rule-var ,',item-var)) ,',item-test) (,',qfun ,,rule-var) (treeitem ,pos ,expr)) (treeitem ,pos ,expr)))))
 
-;; Symbol terminal (quoted)
+;; Macro that facilitates the addition of simple sequence terminals
+(defmacro define-simple-sequence-terminal (name (rule-var seq-test seq-eql))
+  `(define-terminal ,name (expr ,rule-var pos args)
+      (,seq-test ,rule-var)
+      `(test-and-advance ,,rule-var ,expr ,pos (if (,',seq-test (treeitem (treepos-copy ,pos -1) ,expr))
+                                                   (subseq-at ,,rule-var (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
+                                                   (and (,',seq-test (treeitem ,pos ,expr)) (,',seq-eql (treeitem ,pos ,expr) ,,rule-var)))
+           ,,rule-var (if (,',seq-test (treeitem (treepos-copy ,pos -1) ,expr)) ,(length ,rule-var) 1))))
+
+;; Define terminals
 (define-simple-terminal literal-t (rule item) (eql rule t) (not (null item)))
 (define-simple-terminal literal-nil (rule item) (null rule) (null item))
 (define-simple-terminal specific-symbol (rule item) (quoted-symbol-p rule) (symbol= item rule))
 (define-simple-terminal specific-character (rule item) (characterp rule) (and (characterp item) (char= item rule)))
-(define-terminal specific-string (expr rule pos args)
-                 (stringp rule)
-                 `(test-and-advance ,rule ,expr ,pos (if (stringp (treeitem (treepos-copy ,pos -1) ,expr))
-                                                         ;; We are parsing a string, so match substring
-                                                         (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
-                                                         ;; We are not parsing a string, match the whole item
-                                                         (and (stringp (treeitem ,pos ,expr)) (string= (treeitem ,pos ,expr) ,rule)))
-                      ,rule (if (stringp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
-(define-terminal specific-vector (expr rule pos args)
-                 (and (vectorp rule) t)
-                 `(test-and-advance ,rule ,expr ,pos (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr))
-                                                         ;; We are parsing a vector, match the subsequence
-                                                         (subseq-at ,rule (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
-                                                         ;; We are not parsing a vector, match the whole item
-                                                         (equalp (treeitem ,pos ,expr) ,rule))
-                      ,rule (if (vectorp (treeitem (treepos-copy ,pos -1) ,expr)) ,(length rule) 1)))
+(define-simple-sequence-terminal specific-string (rule stringp string=))
+(define-simple-sequence-terminal specific-vector (rule vectorp equalp))
 (define-simple-terminal specific-number (rule item) (numberp rule) (and (numberp item) (= item rule)))
 (define-simple-terminal character-set (rule item :quote t) (and (listp rule) (l= rule 2) (symbol= (first rule) 'char) (stringp (second rule))) (and (characterp item) (find item (expand-regexp-bracket-expression (second rule)))))
 (define-simple-terminal any-character (rule item :quote t) (symbol= rule 'char) (characterp item))
