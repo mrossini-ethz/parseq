@@ -433,11 +433,10 @@
 
 ;; Macro that facilitates the addition of simple terminals
 (defmacro define-simple-terminal (name (rule-var item-var &key quote) rule-test item-test)
-  `(define-terminal ,name (expr ,rule-var pos args)
-                    ,rule-test
-                    ,(if (null quote)
-                         ``(test-and-advance ,,rule-var ,expr ,pos ((lambda (,',item-var ,',rule-var) (declare (ignorable ,',item-var ,',rule-var)) ,',item-test) (treeitem ,pos ,expr) ,,rule-var) (treeitem ,pos ,expr))
-                         ``(test-and-advance ',,rule-var ,expr ,pos ((lambda (,',item-var ,',rule-var) (declare (ignorable ,',item-var ,',rule-var)) ,',item-test) (treeitem ,pos ,expr) ',,rule-var) (treeitem ,pos ,expr)))))
+  (let ((qfun (if (null quote) 'identity 'quote)))
+    `(define-terminal ,name (expr ,rule-var pos args)
+        ,rule-test
+        `(test-and-advance (,',qfun ,,rule-var) ,expr ,pos ((lambda (,',item-var ,',rule-var) (declare (ignorable ,',item-var ,',rule-var)) ,',item-test) (treeitem ,pos ,expr)  (,',qfun ,,rule-var)) (treeitem ,pos ,expr)))))
 
 ;; Symbol terminal (quoted)
 (define-simple-terminal literal-t (rule item) (eql rule t) (not (null item)))
