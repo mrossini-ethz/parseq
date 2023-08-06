@@ -119,27 +119,22 @@
   ;; Function that parses terminals at runtime. This is used
   ;; when the type of terminal is unknown at compile time
   ;; (such as for rule arguments).
+
+  ;; Expand terminals
+  (loop for expander in *terminal-table* do
+    (destructuring-bind (symb test expand runtime) expander
+      (declare (ignore symb expand))
+      (when (and runtime (funcall test arg))
+        (return-from runtime-dispatch (funcall runtime expr arg pos)))))
+
+  ;; Expand nonterminals
   (cond
-    ;; Is a quoted symbol
-    ((quoted-symbol-p arg) (runtime-match arg expr pos (symbol= (second arg) (treeitem pos expr)) (second arg)))
-    ;; Is a character
-    ((characterp arg) (runtime-match arg expr pos (and (characterp (treeitem pos expr)) (char= arg (treeitem pos expr))) arg))
-    ;; Is a string and expression is also a string
-    ((and (stringp expr) (stringp arg)) (runtime-match arg expr pos (subseq-at arg (treeitem (treepos-copy pos -1) expr) (treepos-lowest pos)) arg (length arg)))
-    ;; Is a string, expression is not a string
-    ((stringp arg) (runtime-match arg expr pos (and (stringp (treeitem pos expr)) (string= arg (treeitem pos expr))) arg))
-    ;; Is a vector and expression is also a vector
-    ((and (vectorp expr) (vectorp arg)) (runtime-match arg expr pos (subseq-at arg (treeitem (treepos-copy pos -1) expr) (treepos-lowest pos)) arg (length arg)))
-    ;; Is a vector, expression is not a vector
-    ((vectorp arg) (runtime-match arg expr pos (equalp arg (treeitem pos expr)) arg))
-    ;; Is a number
-    ((numberp arg) (runtime-match arg expr pos (and (numberp (treeitem pos expr)) (= arg (treeitem pos expr))) arg))
     ;; Is a symbol (possibly a valid nonterminal)
     ((symbolp arg) (parseq-internal arg expr pos))
     ;; Is a list (possibly a valid nonterminal with arguments)
     ((listp arg) (parseq-internal arg expr pos))
     ;; Not implemented
-    (t (f-error invalid-terminal-runtime-error () "Unknown terminal: ~a (of type ~a)" arg (type-of arg)))))
+    (t (f-error invalid-terminal-runtime-error () "Unknown operation: ~a (of type ~a)" arg (type-of arg)))))
 
 ;; Expansion functions -----------------------------------------------
 
@@ -425,14 +420,15 @@
     (t `(try-and-advance ,(expand-parse-call expr rule pos args) ,pos))))
 
 ;; Macro that facilitates the addition of new terminals
-(defmacro define-terminal (name (expr rule pos args) test code)
-  (with-gensyms (index matchfunc expandfunc)
+(defmacro define-terminal (name (expr rule pos args) test expander-code runtime-code)
+  (with-gensyms (index matchfunc expandfunc runtimefunc)
     `(let ((,index (position ',name *terminal-table* :key #'first))
            (,matchfunc (lambda (,rule) (declare (ignorable ,rule)) ,test))
-           (,expandfunc (lambda (,expr ,rule ,pos ,args) (declare (ignorable ,expr ,rule ,pos ,args)) ,code)))
+           (,expandfunc (lambda (,expr ,rule ,pos ,args) (declare (ignorable ,expr ,rule ,pos ,args)) ,expander-code))
+           (,runtimefunc (lambda (,expr ,rule ,pos) (declare (ignorable ,expr ,rule ,pos)) ,runtime-code)))
        (if ,index
-           (setf (nth ,index *terminal-table*) (list ',name ,matchfunc ,expandfunc))
-           (setf *terminal-table* (append *terminal-table* (list (list ',name ,matchfunc ,expandfunc)))))
+           (setf (nth ,index *terminal-table*) (list ',name ,matchfunc ,expandfunc ,runtimefunc))
+           (setf *terminal-table* (append *terminal-table* (list (list ',name ,matchfunc ,expandfunc ,runtimefunc)))))
        *terminal-table*)))
 
 ;; Macro that facilitates the addition of simple terminals
@@ -440,7 +436,9 @@
   (let ((qfun (if (null quote) 'identity 'quote)))
     `(define-terminal ,name (expr ,rule-var pos args)
         ,rule-test
-        `(test-and-advance (,',qfun ,,rule-var) ,expr ,pos ((lambda (,',rule-var ,',item-var) (declare (ignorable ,',rule-var ,',item-var)) ,',item-test) (,',qfun ,,rule-var) (treeitem ,pos ,expr)) (treeitem ,pos ,expr)))))
+        `(test-and-advance (,',qfun ,,rule-var) ,expr ,pos ((lambda (,',rule-var ,',item-var) (declare (ignorable ,',rule-var ,',item-var)) ,',item-test) (,',qfun ,,rule-var) (treeitem ,pos ,expr)) (treeitem ,pos ,expr))
+        (symbol-macrolet ((,item-var (treeitem pos expr)))
+          (runtime-match ,rule-var expr pos ,item-test ,item-var)))))
 
 ;; Macro that facilitates the addition of simple sequence terminals
 (defmacro define-simple-sequence-terminal (name (rule-var seq-test seq-eql))
@@ -449,7 +447,10 @@
       `(test-and-advance ,,rule-var ,expr ,pos (if (,',seq-test (treeitem (treepos-copy ,pos -1) ,expr))
                                                    (subseq-at ,,rule-var (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
                                                    (and (,',seq-test (treeitem ,pos ,expr)) (,',seq-eql (treeitem ,pos ,expr) ,,rule-var)))
-           ,,rule-var (if (,',seq-test (treeitem (treepos-copy ,pos -1) ,expr)) ,(length ,rule-var) 1))))
+          ,,rule-var (if (,',seq-test (treeitem (treepos-copy ,pos -1) ,expr)) ,(length ,rule-var) 1))
+      (if (,seq-test (treeitem (treepos-copy pos -1) expr))
+          (runtime-match ,rule-var expr pos (subseq-at ,rule-var (treeitem (treepos-copy pos -1) expr) (treepos-lowest pos)) ,rule-var (length ,rule-var))
+          (runtime-match ,rule-var expr pos (and (,seq-test (treeitem pos expr)) (,seq-eql (treeitem pos expr) ,rule-var)) (treeitem pos expr)))))
 
 ;; Define terminals
 (define-simple-terminal literal-t (rule item) (eql rule t) (not (null item)))
@@ -481,16 +482,17 @@
   ;; Generates code according to the given rule
   ;; Expand terminals
   (loop for expander in *terminal-table* do
-    (destructuring-bind (symb test expand) expander
-      (declare (ignore symb))
+    (destructuring-bind (symb test expand runtime) expander
+      (declare (ignore symb runtime))
       (when (funcall test rule)
           (return-from expand-rule (funcall expand expr rule pos args)))))
   (cond
-    ;; Expand rules
+    ;; Expand nonterminals
     ((and (symbolp rule) (have rule args)) `(try-and-advance (runtime-dispatch ,expr ,rule ,pos) ,pos))
     ((symbolp rule) `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))
-    ;; Expand non-terminals
+    ;; Expand grammar expressions (and, or, *, +, ...)
     ((and (consp rule) (symbolp (first rule))) (expand-list-expr expr rule pos args))
+    ;; Invalid operation
     (t (f-error invalid-operation-error () "Invalid operation ~s" rule))))
 
 ;; Rule options --------------------------------------------------------------
