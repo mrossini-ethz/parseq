@@ -426,10 +426,14 @@
 
 ;; Macro that facilitates the addition of new terminals
 (defmacro define-terminal (name (expr rule pos args) test code)
-  `(setf *terminal-table* (append *terminal-table*
-           (list (list ',name
-                       (lambda (,rule) (declare (ignorable ,rule)) ,test)
-                       (lambda (,expr ,rule ,pos ,args) (declare (ignorable ,expr ,rule ,pos ,args)) ,code))))))
+  (with-gensyms (index matchfunc expandfunc)
+    `(let ((,index (position ',name *terminal-table* :key #'first))
+           (,matchfunc (lambda (,rule) (declare (ignorable ,rule)) ,test))
+           (,expandfunc (lambda (,expr ,rule ,pos ,args) (declare (ignorable ,expr ,rule ,pos ,args)) ,code)))
+       (if ,index
+           (setf (nth ,index *terminal-table*) (list ',name ,matchfunc ,expandfunc))
+           (setf *terminal-table* (append *terminal-table* (list (list ',name ,matchfunc ,expandfunc)))))
+       *terminal-table*)))
 
 ;; Macro that facilitates the addition of simple terminals
 (defmacro define-simple-terminal (name (rule-var item-var &key quote) rule-test item-test)
