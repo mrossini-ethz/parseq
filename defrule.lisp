@@ -121,7 +121,7 @@
   ;; (such as for rule arguments).
   (cond
     ;; Is a quoted symbol
-    ((quoted-symbol-p arg) (runtime-match (second arg) expr pos (symbol= (second arg) (treeitem pos expr)) (second arg)))
+    ((quoted-symbol-p arg) (runtime-match arg expr pos (symbol= (second arg) (treeitem pos expr)) (second arg)))
     ;; Is a character
     ((characterp arg) (runtime-match arg expr pos (and (characterp (treeitem pos expr)) (char= arg (treeitem pos expr))) arg))
     ;; Is a string and expression is also a string
@@ -454,7 +454,7 @@
 ;; Define terminals
 (define-simple-terminal literal-t (rule item) (eql rule t) (not (null item)))
 (define-simple-terminal literal-nil (rule item) (null rule) (null item))
-(define-simple-terminal specific-symbol (rule item) (quoted-symbol-p rule) (symbol= item rule))
+(define-simple-terminal specific-symbol (rule item :quote t) (quoted-symbol-p rule) (symbol= item (second rule)))
 (define-simple-terminal specific-character (rule item) (characterp rule) (and (characterp item) (char= item rule)))
 (define-simple-sequence-terminal specific-string (rule stringp string=))
 (define-simple-sequence-terminal specific-vector (rule vectorp equalp))
