@@ -440,7 +440,7 @@
   (let ((qfun (if (null quote) 'identity 'quote)))
     `(define-terminal ,name (expr ,rule-var pos args)
         ,rule-test
-        `(test-and-advance (,',qfun ,,rule-var) ,expr ,pos ((lambda (,',item-var ,',rule-var) (declare (ignorable ,',item-var ,',rule-var)) ,',item-test) (treeitem ,pos ,expr)  (,',qfun ,,rule-var)) (treeitem ,pos ,expr)))))
+        `(test-and-advance (,',qfun ,,rule-var) ,expr ,pos ((lambda (,',rule-var ,',item-var) (declare (ignorable ,',rule-var ,',item-var)) ,',item-test) (,',qfun ,,rule-var) (treeitem ,pos ,expr)) (treeitem ,pos ,expr)))))
 
 ;; Symbol terminal (quoted)
 (define-simple-terminal literal-t (rule item) (eql rule t) (not (null item)))
