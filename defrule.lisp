@@ -445,16 +445,17 @@
   `(define-simple-terminal ,name (,rule-var ,item-var :quote t) (symbol= ,rule-var ',name) ,item-test))
 
 ;; Macro that facilitates the addition of simple sequence terminals
-(defmacro define-simple-sequence-terminal (name (rule-var seq-test seq-eql))
-  `(define-terminal ,name (expr ,rule-var pos args)
+(defmacro define-simple-sequence-terminal (name (seq-test seq-eql))
+  (with-gensyms (rule-var)
+    `(define-terminal ,name (expr ,rule-var pos args)
       (,seq-test ,rule-var)
       `(test-and-advance ,,rule-var ,expr ,pos (if (,',seq-test (treeitem (treepos-copy ,pos -1) ,expr))
                                                    (subseq-at ,,rule-var (treeitem (treepos-copy ,pos -1) ,expr) (treepos-lowest ,pos))
                                                    (and (,',seq-test (treeitem ,pos ,expr)) (,',seq-eql (treeitem ,pos ,expr) ,,rule-var)))
-          ,,rule-var (if (,',seq-test (treeitem (treepos-copy ,pos -1) ,expr)) ,(length ,rule-var) 1))
+           ,,rule-var (if (,',seq-test (treeitem (treepos-copy ,pos -1) ,expr)) ,(length ,rule-var) 1))
       (if (,seq-test (treeitem (treepos-copy pos -1) expr))
           (runtime-match ,rule-var expr pos (subseq-at ,rule-var (treeitem (treepos-copy pos -1) expr) (treepos-lowest pos)) ,rule-var (length ,rule-var))
-          (runtime-match ,rule-var expr pos (and (,seq-test (treeitem pos expr)) (,seq-eql (treeitem pos expr) ,rule-var)) (treeitem pos expr)))))
+          (runtime-match ,rule-var expr pos (and (,seq-test (treeitem pos expr)) (,seq-eql (treeitem pos expr) ,rule-var)) (treeitem pos expr))))))
 
 ;; Function to remove terminal definition
 (defun undefine-terminal (name)
@@ -470,8 +471,8 @@
 (define-simple-terminal (specific-number) (rule item) (numberp rule) (and (numberp item) (= item rule)))
 (define-simple-terminal (specific-symbol) (rule item :quote t) (quoted-symbol-p rule) (symbol= item (second rule)))
 (define-simple-terminal (character-set) (rule item :quote t) (and (listp rule) (l= rule 2) (symbol= (first rule) 'char) (stringp (second rule))) (and (characterp item) (find item (expand-regexp-bracket-expression (second rule)))))
-(define-simple-sequence-terminal (specific-string) (rule stringp string=))
-(define-simple-sequence-terminal (specific-vector) (rule vectorp equalp))
+(define-simple-sequence-terminal (specific-string) (stringp string=))
+(define-simple-sequence-terminal (specific-vector) (vectorp equalp))
 (define-simple-symbol-terminal t (rule item) (not (null item)))
 (define-simple-symbol-terminal nil (rule item) (null item))
 (define-simple-symbol-terminal char (rule item) (characterp item))

@@ -187,7 +187,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (parseq::define-simple-symbol-terminal plus (rule item) (and (numberp item) (plusp item)))
-  (parseq::define-simple-sequence-terminal (specific-vector) (rule vectorp equalp)))
+  (parseq::define-simple-sequence-terminal (specific-vector) (vectorp equalp)))
 
 (parseq::defrule terminal-plus () plus)
 (parseq::defrule terminal-vec () #(1 2 3))
