@@ -186,28 +186,6 @@
     (test-parseq 'terminal-char-expr "," nil nil)))
 
 (parseq:defrule peg-expr-and () (and 'a 'b 'c))
-(parseq:defrule peg-expr-and~ () (and~ 'a 'b 'c 'd))
-(parseq:defrule peg-expr-and~~ () (and~~ (1 2 (1) (2 3)) 'a 'b 'c 'd))
-(parseq:defrule peg-expr-and~~2 () (and~~ (* + ?) 'a 'b 'c))
-(parseq:defrule peg-expr-or () (or 'a 'b 'c))
-(parseq:defrule peg-expr-not () (not 'a))
-(parseq:defrule peg-expr-* () (* 'a))
-(parseq:defrule peg-expr-+ () (+ 'a))
-(parseq:defrule peg-expr-? () (? 'a))
-(parseq:defrule peg-expr-& () (& 'a))
-(parseq:defrule peg-expr-! () (! 'a))
-(parseq:defrule peg-expr-rep () (rep 4 'a))
-(parseq:defrule peg-expr-rep-b () (rep (4) 'a))
-(parseq:defrule peg-expr-rep-ab () (rep (3 5) 'a))
-(parseq:defrule peg-expr-rep-nil-b () (rep (nil 5) 'a))
-(parseq:defrule peg-expr-rep-a-nil () (rep (3 nil) 'a))
-(parseq:defrule peg-expr-rep-nil-nil () (rep (nil nil) 'a))
-(parseq:defrule peg-expr-rep-* () (rep * 'a))
-(parseq:defrule peg-expr-rep-+ () (rep + 'a))
-(parseq:defrule peg-expr-rep-? () (rep ? 'a))
-(parseq:defrule peg-expr-list () (list 'a 'b))
-(parseq:defrule peg-expr-string () (string #\a #\b))
-(parseq:defrule peg-expr-vector () (vector 4 5))
 
 (define-test and-test ()
   (check
@@ -216,6 +194,10 @@
     (test-parseq 'peg-expr-and '(a b) nil nil)
     (test-parseq 'peg-expr-and '(a c) nil nil)
     (test-parseq 'peg-expr-and '(a) nil nil)))
+
+(parseq:defrule peg-expr-and~ () (and~ 'a 'b 'c 'd))
+(parseq:defrule peg-expr-and~~ () (and~~ (1 2 (1) (2 3)) 'a 'b 'c 'd))
+(parseq:defrule peg-expr-and~~2 () (and~~ (* + ?) 'a 'b 'c))
 
 (define-test and~-test ()
   (check
@@ -333,6 +315,8 @@
     (test-parseq 'peg-expr-and~~2 (shuffle '(a)) nil nil)
     (test-parseq 'peg-expr-and~~2 (shuffle '(b c c)) nil nil)))
 
+(parseq:defrule peg-expr-or () (or 'a 'b 'c))
+
 (define-test or-test ()
   (check
     ;; (or 'a 'b 'c)
@@ -341,12 +325,16 @@
     (test-parseq 'peg-expr-or '(c) t 'c)
     (test-parseq 'peg-expr-or '(d) nil nil)))
 
+(parseq:defrule peg-expr-not () (not 'a))
+
 (define-test not-test ()
   (check
     ;; (not 'a)
     (test-parseq 'peg-expr-not '() nil nil)
     (test-parseq 'peg-expr-not '(a) nil nil)
     (test-parseq 'peg-expr-not '(b) t 'b)))
+
+(parseq:defrule peg-expr-* () (* 'a))
 
 (define-test *-test ()
   (check
@@ -360,6 +348,8 @@
     (test-parseq 'peg-expr-* '(a b) nil nil)
     (test-parseq 'peg-expr-* '(a b) t '(a) t)))
 
+(parseq:defrule peg-expr-+ () (+ 'a))
+
 (define-test +-test ()
   (check
     ;; (+ 'a)
@@ -371,6 +361,8 @@
     (test-parseq 'peg-expr-+ '(a b) nil nil)
     (test-parseq 'peg-expr-+ '(a b) t '(a) t)))
 
+(parseq:defrule peg-expr-? () (? 'a))
+
 (define-test ?-test ()
   (check
     ;; (? 'a)
@@ -378,11 +370,28 @@
     (test-parseq 'peg-expr-? '(a) t 'a)
     (test-parseq 'peg-expr-? '(b) t nil t)))
 
+(parseq:defrule peg-expr-& () (& 'a))
+(parseq:defrule peg-expr-! () (! 'a))
+(parseq:defrule peg-expr-rep () (rep 4 'a))
+(parseq:defrule peg-expr-rep-b () (rep (4) 'a))
+(parseq:defrule peg-expr-rep-ab () (rep (3 5) 'a))
+(parseq:defrule peg-expr-rep-nil-b () (rep (nil 5) 'a))
+(parseq:defrule peg-expr-rep-a-nil () (rep (3 nil) 'a))
+(parseq:defrule peg-expr-rep-nil-nil () (rep (nil nil) 'a))
+(parseq:defrule peg-expr-rep-* () (rep * 'a))
+(parseq:defrule peg-expr-rep-+ () (rep + 'a))
+(parseq:defrule peg-expr-rep-? () (rep ? 'a))
+(parseq:defrule peg-expr-list () (list 'a 'b))
+(parseq:defrule peg-expr-string () (string #\a #\b))
+(parseq:defrule peg-expr-vector () (vector 4 5))
+
 (define-test &-test ()
   (check
     ;; (& 'a)
     (test-parseq 'peg-expr-& '(a) t 'a t)
     (test-parseq 'peg-expr-& '(b) nil nil t)))
+
+(parseq:defrule peg-expr-! () (! 'a))
 
 (define-test !-test ()
   (check
@@ -390,6 +399,16 @@
     (test-parseq 'peg-expr-! '() nil nil)
     (test-parseq 'peg-expr-! '(a) nil nil)
     (test-parseq 'peg-expr-! '(b) t 'b t)))
+
+(parseq:defrule peg-expr-rep () (rep 4 'a))
+(parseq:defrule peg-expr-rep-b () (rep (4) 'a))
+(parseq:defrule peg-expr-rep-ab () (rep (3 5) 'a))
+(parseq:defrule peg-expr-rep-nil-b () (rep (nil 5) 'a))
+(parseq:defrule peg-expr-rep-a-nil () (rep (3 nil) 'a))
+(parseq:defrule peg-expr-rep-nil-nil () (rep (nil nil) 'a))
+(parseq:defrule peg-expr-rep-* () (rep * 'a))
+(parseq:defrule peg-expr-rep-+ () (rep + 'a))
+(parseq:defrule peg-expr-rep-? () (rep ? 'a))
 
 (define-test rep-test ()
   (check
@@ -451,6 +470,8 @@
     (test-parseq 'peg-expr-rep-? '(a) t '(a))
     (test-parseq 'peg-expr-rep-? '(a a) nil nil)))
 
+(parseq:defrule peg-expr-list () (list 'a 'b))
+
 (define-test list-test ()
   (check
     ;; (list 'a)
@@ -461,6 +482,8 @@
     (test-parseq 'peg-expr-list '((a c)) nil nil)
     (test-parseq 'peg-expr-list '((b b)) nil nil)
     (test-parseq 'peg-expr-list '(#(a b)) nil nil)))
+
+(parseq:defrule peg-expr-string () (string #\a #\b))
 
 (define-test string-test ()
   (check
@@ -481,6 +504,8 @@
     (test-parseq 'terminal-string "abc" t "abc")
     (test-parseq 'terminal-string (coerce "abc" '(simple-array character (3))) t "abc")
     (test-parseq 'terminal-string (coerce "abc" '(simple-base-string 3)) t "abc")))
+
+(parseq:defrule peg-expr-vector () (vector 4 5))
 
 (define-test vector-test ()
   (check
