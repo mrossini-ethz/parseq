@@ -138,16 +138,6 @@
                        ;; Return the result, the success, plus the index which succeeded
                        (return-from ,blockname (values ,result ,success ,i))))))))))
 
-;; Random function (for testing)
-
-(defun shuffle (list)
-  "Creates a new list in which the items of the given list are shuffled"
-  ;; Algorithm by Donald Knuth
-  (let ((n (list-length list)) (result (copy-list list)))
-    (loop for i below (- n 1) do
-         (rotatef (nth i result) (nth (+ i (random (- n i))) result))
-       finally (return result))))
-
 ;; String functions
 
 (defun cat (&rest items)

@@ -28,7 +28,7 @@
 ;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 ;; OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(in-package :parseq)
+(in-package :common-lisp-user)
 
 (defvar *test-name* nil)
 (defvar *test-failures* 0)
@@ -64,7 +64,7 @@
 
 (defmacro combine-results (&body forms)
   "Logical AND operation of the given forms, but without short-circuiting. This ensures that each form is evaluated exactly once."
-  (with-gensyms (result)
+  (parseq::with-gensyms (result)
     `(let ((,result t))
        ,@(loop for f in forms collect `(unless ,f (setf ,result nil)))
        ,result)))

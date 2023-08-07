@@ -34,7 +34,7 @@
   (:documentation "Error condition for malformed calls to rules."))
 (define-condition left-recursion-error (runtime-error) ()
   (:documentation "Error condition for situations where left recursion is detected at runtime."))
-(export '(runtime-error unknown-rule-error invalid-rule-error left-recursion-error))
+(export '(runtime-error unknown-rule-error invalid-terminal-runtime-error invalid-rule-error left-recursion-error))
 
 (defmacro f-error (type (&rest initargs) control &rest args)
   "Like (error ...), but allows the condition type to be specified (which is required to inherit from simple-condition)."

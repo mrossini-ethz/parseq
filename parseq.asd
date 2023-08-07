@@ -20,4 +20,4 @@
                (:file "test/test")))
 
 (defmethod perform ((operation test-op) (system (eql (find-system :parseq/test))))
-  (funcall (intern "PARSEQ-TEST" :parseq)))
+  (funcall (intern "PARSEQ-TEST")))
