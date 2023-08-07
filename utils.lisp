@@ -289,7 +289,7 @@
 (defun decode-range (range)
   (cond
     ((symbolp range)
-     (case range
+     (case-test (range :test symbol=)
        (+ (list 1 nil))
        (* (list 0 nil))
        (? (list 0 1))

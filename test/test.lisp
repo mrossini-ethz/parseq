@@ -28,7 +28,7 @@
 (parseq:defrule nonterminal-and () (and 'a 'b 'c))
 (parseq:defrule nonterminal-and~ () (and~ 'a 'b 'c 'd))
 (parseq:defrule nonterminal-and~~ () (and~~ (1 2 (1) (2 3)) 'a 'b 'c 'd))
-(parseq:defrule nonterminal-and~~2 () (and~~ (* + parseq:?) 'a 'b 'c)) ;; <<-- FIXME: should not be necessary to prefix with "parseq:"
+(parseq:defrule nonterminal-and~~2 () (and~~ (* + ?) 'a 'b 'c))
 (parseq:defrule nonterminal-or () (or 'a 'b 'c))
 (parseq:defrule nonterminal-not () (not 'a))
 (parseq:defrule nonterminal-* () (* 'a))
@@ -44,7 +44,7 @@
 (parseq:defrule nonterminal-rep-nil-nil () (rep (nil nil) 'a))
 (parseq:defrule nonterminal-rep-* () (rep * 'a))
 (parseq:defrule nonterminal-rep-+ () (rep + 'a))
-(parseq:defrule nonterminal-rep-? () (rep parseq:? 'a)) ;; <<-- FIXME: should not be necessary to prefix with "parseq:"
+(parseq:defrule nonterminal-rep-? () (rep ? 'a))
 (parseq:defrule nonterminal-list () (list 'a 'b))
 (parseq:defrule nonterminal-string () (string #\a #\b))
 (parseq:defrule nonterminal-vector () (vector 4 5))
