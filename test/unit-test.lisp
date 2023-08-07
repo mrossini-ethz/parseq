@@ -72,7 +72,9 @@
 (defmacro check (&body forms)
   "Run each expression in 'forms' once and reports whether succeded (t) or failed (nil)."
   `(combine-results
-     ,@(loop for f in forms collect `(report-result ,f ',f ,@(if (and (listp f) (not (eql 'condition= (first f)))) `((list ',(first f) ,@(rest f))) `(',f))))))
+     ,@(loop for f in forms
+             for ff = (macroexpand f)
+             collect `(report-result ,f ',f ,@(if (and (listp f) (not (eql 'condition= (first f)))) `((list ',(first ff) ,@(rest ff))) `(',f))))))
 
 (defmacro check-with-side-effects (&body forms)
   "Run each expression in 'forms' once and reports whether succeded (t) or failed (nil)."
