@@ -185,6 +185,26 @@
     (test-parseq 'terminal-char-expr "+" t #\+)
     (test-parseq 'terminal-char-expr "," nil nil)))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (parseq::define-simple-symbol-terminal plus (rule item) (and (numberp item) (plusp item)))
+  (parseq::define-simple-sequence-terminal (specific-vector) (rule vectorp equalp)))
+
+(parseq::defrule terminal-plus () plus)
+(parseq::defrule terminal-vec () #(1 2 3))
+
+(define-test terminal-definition-test ()
+  (check
+    (test-parseq 'terminal-plus '(3) t 3)
+    (test-parseq 'terminal-plus '(-3) nil nil)
+    (test-parseq 'terminal-plus '(a) nil nil)
+    (test-parseq 'terminal-vec '(#(1 2 3)) t '#(1 2 3) nil equalp)
+    (test-parseq 'terminal-vec '(#(1 4 3)) nil nil nil equalp)
+    (test-parseq 'terminal-vec #(1 2 3) t #(1 2 3) nil equalp)
+    (test-parseq 'terminal-vec #(1 4 3) nil nil nil equalp)))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (parseq::undefine-terminal 'plus))
+
 (parseq:defrule peg-expr-and () (and 'a 'b 'c))
 
 (define-test and-test ()
@@ -989,6 +1009,7 @@
   (check
     (treepos-test)
     (terminal-test)
+    (terminal-definition-test)
     (and-test)
     (and~-test)
     (or-test)
