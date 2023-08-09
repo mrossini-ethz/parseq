@@ -1,5 +1,9 @@
 (in-package :parseq)
 
+;; List of operators used in parsing expressions. Each item is a symbol
+;; a matching function and an expansion function
+(defparameter *operator-table* nil)
+
 ;; List of possible terminals with each item being a list of terminal
 ;; name, a rule matching function as well as an expansion function.
 (defparameter *terminal-table* nil)
@@ -171,9 +175,18 @@
 ;; The intent is to generate lisp code for parsing.
 ;; They return two values: The portion of the `expr' that was parsed, and a success value
 
-(defun expand-or (expr rule pos args)
-  ;; Generates code that parses an expression using (or ...)
-  `(or2 ,@(loop for r in rule collect (expand-rule expr r pos args))))
+(defmacro define-operator (name (expr-var rule-var pos-var args-var) match-code &body expander-code)
+  (with-gensyms (index matchfunc expandfunc)
+    `(let ((,index (position ',name *operator-table* :key #'first))
+           (,matchfunc (lambda (,rule-var) ,match-code))
+           (,expandfunc (lambda (,expr-var ,rule-var ,pos-var ,args-var) ,@expander-code)))
+       (if ,index
+           (setf (elt *operator-table* ,index) (list ',name ,matchfunc ,expandfunc))
+           (setf *operator-table* (append *operator-table* (list (list ',name ,matchfunc ,expandfunc)))))
+       *operator-table*)))
+
+(define-operator or (expr rule pos args) (and (listp rule) (l> rule 1) (symbol= (first rule) 'or))
+  `(or2 ,@(loop for r in (rest rule) collect (expand-rule expr r pos args))))
 
 (defun expand-and~ (expr rule pos args)
   ;; Generates code that parses an expression using (and~ ...)
@@ -358,12 +371,13 @@
 
 (defun expand-list-expr (expr rule pos args)
   ;; Generates code that parses an expression with a rule that is a list
+  (loop for op in *operator-table* do
+    (destructuring-bind (symb matchfunc expandfunc) op
+      (declare (ignore symb))
+      (when (funcall matchfunc rule)
+        (return-from expand-list-expr (funcall expandfunc expr rule pos args)))))
   ;; Rule is a ...
   (case-test ((first rule) :test symbol=)
-    ;; ordered choice
-    (or (if (l> rule 1)
-            (expand-or expr (rest rule) pos args)
-            (f-error invalid-operation-error () "Invalid (or ...) expression.")))
     ;; sequence
     (and (if (l> rule 1)
              (expand-and expr (rest rule) pos args)
