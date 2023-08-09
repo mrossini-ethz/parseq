@@ -265,25 +265,22 @@
            (unless (some #'null (mapcar #'check-range ,counts ,ranges))
              (values ,results t)))))))
 
-(defun expand-not (expr rule pos args)
+(define-operator not (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) 'not))
   ;; Generates code that parses an expression using (not ...)
-  (with-gensyms (oldpos result success)
+  (with-gensyms (result success)
     ;; Save the current position
-    `(let ((,oldpos (treepos-copy ,pos)))
-       (with-expansion-failure ((,result ,success) ,expr ,rule ,pos ,args)
+    `(with-backtracking (,pos)
+       (with-expansion-failure ((,result ,success) ,expr ,(second rule) ,pos ,args)
          ;; Expression failed, which is good (but only if we have not reached the end of expr)
-         (if (treepos-valid ,pos ,expr)
+         (when (treepos-valid ,pos ,expr)
              (let ((,result (treeitem ,pos ,expr)))
                ;; Advance the position by one
                (setf ,pos (treepos-step ,pos))
-               (values ,result t))
-             (values nil nil))
+               (values ,result t)))
          ;; Expression succeeded, which is bad
          (progn
            ;; Use the variable in order to avoid causing a warning
            ,result
-           ;; Roll back the position
-           (setf ,pos ,oldpos)
            ;; Return nil
            (values nil nil))))))
 
@@ -383,10 +380,6 @@
         (return-from expand-list-expr (funcall expandfunc expr rule pos args)))))
   ;; Rule is a ...
   (case-test ((first rule) :test symbol=)
-    ;; negation
-    (not (if (l= rule 2)
-             (expand-not expr (second rule) pos args)
-             (f-error invalid-operation-error () "Invalid (not ...) expression.")))
     ;; greedy repetition
     (* (if (l= rule 2)
            (expand-* expr (second rule) pos args)
