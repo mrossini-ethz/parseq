@@ -209,19 +209,19 @@
          ;; Return success
          (values ,list t)))))
 
-(defun expand-and~ (expr rule pos args)
+(define-operator and~ (expr rule pos args) (and (listp rule) (l> rule 1) (symbol= (first rule) 'and~))
   ;; Generates code that parses an expression using (and~ ...)
   (with-gensyms (results checklist result block oldpos success index)
     ;; Make a check list that stores nil for rules that have not yet been applied and t for those that have
     ;; Also make a list of results. We need both lists, because the result of a rule may be nil, even if it succeeds.
     `(block ,block
-       (let ((,checklist (make-list ,(list-length rule) :initial-element nil))
-             (,results (make-list ,(list-length rule) :initial-element nil))
+       (let ((,checklist (make-list ,(1- (list-length rule)) :initial-element nil))
+             (,results (make-list ,(1- (list-length rule)) :initial-element nil))
              (,oldpos (treepos-copy ,pos)))
          ;; Check each remaining rule whether it matches the next sequence item
-         (loop repeat ,(list-length rule) do
+         (loop repeat ,(1- (list-length rule)) do
            ;; Try each rule, except those that have already succeeded
-           (multiple-value-bind (,result ,success ,index) (or2-exclusive (,checklist) ,@(loop for r in rule collect (expand-rule expr r pos args)))
+           (multiple-value-bind (,result ,success ,index) (or2-exclusive (,checklist) ,@(loop for r in (rest rule) collect (expand-rule expr r pos args)))
              ;; If none of the sub-rules succeeded, the rule fails entirely
              (unless ,success
                (setf ,pos ,oldpos)
@@ -380,10 +380,6 @@
         (return-from expand-list-expr (funcall expandfunc expr rule pos args)))))
   ;; Rule is a ...
   (case-test ((first rule) :test symbol=)
-    ;; sequence (unordered)
-    (and~ (if (l> rule 1)
-              (expand-and~ expr (rest rule) pos args)
-              (f-error invalid-operation-error () "Invalid (and~ ...) expression.")))
     ;; sequence (unordered, extended)
     (and~~ (if (l> rule 2)
                (expand-and~~ expr (cadr rule) (cddr rule) pos args)
