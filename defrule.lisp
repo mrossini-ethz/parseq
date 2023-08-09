@@ -240,29 +240,30 @@
 (defun make-checklist (counts ranges)
   (mapcar (lambda (count range) (and (second range) (>= count (second range)))) counts ranges))
 
-(defun expand-and~~ (expr rep rule pos args)
-  ;; Generates code that parses an expression using (and~~ ...)
-  (with-gensyms (results counts ranges result success index)
-    ;; Make a check list that stores the number of times a rule has been applied.
-    ;; Also make a list of results and one that stores the range of allowed rule applications.
-    `(with-backtracking (,pos)
-       (let ((,counts (make-list ,(list-length rule) :initial-element 0))
-             (,results (make-list ,(list-length rule) :initial-element nil))
-             (,ranges (list ,@(loop for r in rep collect `(list ,@(decode-range r))))))
-         ;; Check each rule whether it matches the next sequence item
-         (loop do
-           ;; Try each rule, except those that have already exceeded their maximum allowed applications
-           (multiple-value-bind (,result ,success ,index) (or2-exclusive ((make-checklist ,counts ,ranges)) ,@(loop for r in rule collect (expand-rule expr r pos args)))
-             ;; If none of the sub-rules succeeded, the rule fails entirely
-             (unless ,success
-               (return))
-             ;; Check the succeeded rule in the list
-             (incf (nth ,index ,counts))
-             ;; Add the result to the list of results
-             (appendf (nth ,index ,results) ,result)))
-         ;; Catch loop failure
-         (unless (some #'null (mapcar #'check-range ,counts ,ranges))
-           (values ,results t))))))
+(define-operator and~~ (expr rule pos args) (and (listp rule) (l> rule 2) (symbol= (first rule) 'and~~))
+  (let ((rep (second rule)) (rule (cddr rule)))
+    ;; Generates code that parses an expression using (and~~ ...)
+    (with-gensyms (results counts ranges result success index)
+      ;; Make a check list that stores the number of times a rule has been applied.
+      ;; Also make a list of results and one that stores the range of allowed rule applications.
+      `(with-backtracking (,pos)
+         (let ((,counts (make-list ,(list-length rule) :initial-element 0))
+               (,results (make-list ,(list-length rule) :initial-element nil))
+               (,ranges (list ,@(loop for r in rep collect `(list ,@(decode-range r))))))
+           ;; Check each rule whether it matches the next sequence item
+           (loop do
+             ;; Try each rule, except those that have already exceeded their maximum allowed applications
+             (multiple-value-bind (,result ,success ,index) (or2-exclusive ((make-checklist ,counts ,ranges)) ,@(loop for r in rule collect (expand-rule expr r pos args)))
+               ;; If none of the sub-rules succeeded, the rule fails entirely
+               (unless ,success
+                 (return))
+               ;; Check the succeeded rule in the list
+               (incf (nth ,index ,counts))
+               ;; Add the result to the list of results
+               (appendf (nth ,index ,results) ,result)))
+           ;; Catch loop failure
+           (unless (some #'null (mapcar #'check-range ,counts ,ranges))
+             (values ,results t)))))))
 
 (defun expand-not (expr rule pos args)
   ;; Generates code that parses an expression using (not ...)
@@ -382,10 +383,6 @@
         (return-from expand-list-expr (funcall expandfunc expr rule pos args)))))
   ;; Rule is a ...
   (case-test ((first rule) :test symbol=)
-    ;; sequence (unordered, extended)
-    (and~~ (if (l> rule 2)
-               (expand-and~~ expr (cadr rule) (cddr rule) pos args)
-               (f-error invalid-operation-error () "Invalid (and~~ ...) expression.")))
     ;; negation
     (not (if (l= rule 2)
              (expand-not expr (second rule) pos args)
