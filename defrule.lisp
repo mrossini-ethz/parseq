@@ -197,49 +197,45 @@
   `(or2 ,@(loop for r in (rest rule) collect (expand-rule expr r pos args))))
 
 (define-operator and (expr rule pos args) (and (listp rule) (l> rule 1) (symbol= (first rule) 'and))
-  (with-gensyms (list result block oldpos success)
+  (with-gensyms (list result block success)
     ;; Block to return from when short-circuiting
-    `(block ,block
+    `(with-backtracking (,pos)
        ;; Initialize the list of results
-       (let (,list (,oldpos (treepos-copy ,pos)))
-         ;; Loop over the rules
-         ,@(loop for r in (rest rule) for n upfrom 0 collect
-                ;; Bind a variable to the result of the rule expansion
-                `(with-expansion-success ((,result ,success) ,expr ,r ,pos ,args)
-                   ;; Success
-                   (appendf ,list ,result)
-                   ;; Failure
-                   (progn
-                     ;; Rewind position
-                     (setf ,pos ,oldpos)
-                     ;; Return failure
-                     (return-from ,block (values nil nil)))))
-         ;; Return success
-         (values ,list t)))))
+       (block ,block
+         (let (,list)
+           ;; Loop over the rules
+           ,@(loop for r in (rest rule) for n upfrom 0 collect
+                   ;; Bind a variable to the result of the rule expansion
+                   `(with-expansion-success ((,result ,success) ,expr ,r ,pos ,args)
+                      ;; Success
+                      (appendf ,list ,result)
+                      ;; Failure: short-circuit
+                      (return-from ,block)))
+           ;; Return success
+           (values ,list t))))))
 
 (define-operator and~ (expr rule pos args) (and (listp rule) (l> rule 1) (symbol= (first rule) 'and~))
   ;; Generates code that parses an expression using (and~ ...)
-  (with-gensyms (results checklist result block oldpos success index)
+  (with-gensyms (results checklist result success index)
     ;; Make a check list that stores nil for rules that have not yet been applied and t for those that have
     ;; Also make a list of results. We need both lists, because the result of a rule may be nil, even if it succeeds.
-    `(block ,block
+    `(with-backtracking (,pos)
        (let ((,checklist (make-list ,(1- (list-length rule)) :initial-element nil))
-             (,results (make-list ,(1- (list-length rule)) :initial-element nil))
-             (,oldpos (treepos-copy ,pos)))
+             (,results (make-list ,(1- (list-length rule)) :initial-element nil)))
          ;; Check each remaining rule whether it matches the next sequence item
          (loop repeat ,(1- (list-length rule)) do
            ;; Try each rule, except those that have already succeeded
            (multiple-value-bind (,result ,success ,index) (or2-exclusive (,checklist) ,@(loop for r in (rest rule) collect (expand-rule expr r pos args)))
              ;; If none of the sub-rules succeeded, the rule fails entirely
              (unless ,success
-               (setf ,pos ,oldpos)
-               (return-from ,block (values nil nil)))
+               (return))
              ;; Check the succeeded rule in the list
              (setf (nth ,index ,checklist) t)
              ;; Add the result to the list of results
              (setf (nth ,index ,results) ,result)))
-         ;; Return list of results
-         (values ,results t)))))
+         (unless (some #'null ,checklist)
+           ;; Return list of results
+           (values ,results t))))))
 
 (defun make-checklist (counts ranges)
   (mapcar (lambda (count range) (and (second range) (>= count (second range)))) counts ranges))
