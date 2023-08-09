@@ -211,26 +211,29 @@
 
 (defun expand-and~ (expr rule pos args)
   ;; Generates code that parses an expression using (and~ ...)
-  (with-gensyms (results checklist result success index)
+  (with-gensyms (results checklist result block oldpos success index)
     ;; Make a check list that stores nil for rules that have not yet been applied and t for those that have
     ;; Also make a list of results. We need both lists, because the result of a rule may be nil, even if it succeeds.
-    `(let ((,checklist (make-list ,(list-length rule) :initial-element nil))
-           (,results (make-list ,(list-length rule) :initial-element nil)))
-       ;; Check each remaining rule whether it matches the next sequence item
-       (loop repeat ,(list-length rule) do
-            ;; Try each rule, except those that have already succeeded
-            (multiple-value-bind (,result ,success ,index) (or2-exclusive (,checklist) ,@(loop for r in rule collect (expand-rule expr r pos args)))
-              ;; If none of the sub-rules succeeded, the rule fails entirely
-              (unless ,success
-                (return))
-              ;; Check the succeeded rule in the list
-              (setf (nth ,index ,checklist) t)
-              ;; Add the result to the list of results
-              (setf (nth ,index ,results) ,result)))
-       ;; Catch loop failure
-       (unless (some #'null ,checklist)
-         ;; Return list of results
-         (values ,results t)))))
+    `(block ,block
+       (let ((,checklist (make-list ,(list-length rule) :initial-element nil))
+             (,results (make-list ,(list-length rule) :initial-element nil))
+             (,oldpos (treepos-copy ,pos)))
+         ;; Check each remaining rule whether it matches the next sequence item
+         (loop repeat ,(list-length rule) do
+           ;; Try each rule, except those that have already succeeded
+           (multiple-value-bind (,result ,success ,index) (or2-exclusive (,checklist) ,@(loop for r in rule collect (expand-rule expr r pos args)))
+             ;; If none of the sub-rules succeeded, the rule fails entirely
+             (unless ,success
+               (setf ,pos ,oldpos)
+               (return-from ,block (values nil nil)))
+             ;; Check the succeeded rule in the list
+             (setf (nth ,index ,checklist) t)
+             ;; Add the result to the list of results
+             (setf (nth ,index ,results) ,result)))
+         ;; Catch loop failure
+         (unless (some #'null ,checklist)
+           ;; Return list of results
+           (values ,results t))))))
 
 (defun make-checklist (counts ranges)
   (mapcar (lambda (count range) (and (second range) (>= count (second range)))) counts ranges))

@@ -219,6 +219,7 @@
     (test-parseq 'peg-expr-and-backtrack '(a b) t '(a b))))
 
 (parseq:defrule peg-expr-and~ () (and~ 'a 'b 'c 'd))
+(parseq:defrule peg-expr-and~-backtrack () (or (and~ 'a 'b 'c) (and~ 'a 'b)))
 (parseq:defrule peg-expr-and~~ () (and~~ (1 2 (1) (2 3)) 'a 'b 'c 'd))
 (parseq:defrule peg-expr-and~~2 () (and~~ (* + ?) 'a 'b 'c))
 
@@ -267,6 +268,12 @@
     (test-parseq 'peg-expr-and~ (shuffle '(a b c d a)) nil nil)
     (test-parseq 'peg-expr-and~ (shuffle '(a b c d a)) nil nil)
     (test-parseq 'peg-expr-and~ (shuffle '(a b c d a)) nil nil)
+
+    ;; Test backtracking
+    (test-parseq 'peg-expr-and~-backtrack '(a b c) t '(a b c))
+    (test-parseq 'peg-expr-and~-backtrack '(c a b) t '(a b c))
+    (test-parseq 'peg-expr-and~-backtrack '(a b) t '(a b))
+    (test-parseq 'peg-expr-and~-backtrack '(b a) t '(a b))
 
     ;; (and~~ (1 2 (1) (2 3)) 'a 'b 'c 'd)
     (test-parseq 'peg-expr-and~~ (shuffle '(a b b c d d d)) t '((a) (b b) (c) (d d d)))
