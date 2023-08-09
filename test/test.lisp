@@ -206,6 +206,7 @@
   (parseq::undefine-terminal 'plus))
 
 (parseq:defrule peg-expr-and () (and 'a 'b 'c))
+(parseq:defrule peg-expr-and-backtrack () (or (and 'a 'b 'c) (and 'a 'b)))
 
 (define-test and-test ()
   (check
@@ -213,7 +214,9 @@
     (test-parseq 'peg-expr-and '(a b c) t '(a b c))
     (test-parseq 'peg-expr-and '(a b) nil nil)
     (test-parseq 'peg-expr-and '(a c) nil nil)
-    (test-parseq 'peg-expr-and '(a) nil nil)))
+    (test-parseq 'peg-expr-and '(a) nil nil)
+    (test-parseq 'peg-expr-and-backtrack '(a b c) t '(a b c))
+    (test-parseq 'peg-expr-and-backtrack '(a b) t '(a b))))
 
 (parseq:defrule peg-expr-and~ () (and~ 'a 'b 'c 'd))
 (parseq:defrule peg-expr-and~~ () (and~~ (1 2 (1) (2 3)) 'a 'b 'c 'd))

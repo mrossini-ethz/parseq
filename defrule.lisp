@@ -188,6 +188,27 @@
 (define-operator or (expr rule pos args) (and (listp rule) (l> rule 1) (symbol= (first rule) 'or))
   `(or2 ,@(loop for r in (rest rule) collect (expand-rule expr r pos args))))
 
+(define-operator and (expr rule pos args) (and (listp rule) (l> rule 1) (symbol= (first rule) 'and))
+  (with-gensyms (list result block oldpos success)
+    ;; Block to return from when short-circuiting
+    `(block ,block
+       ;; Initialize the list of results
+       (let (,list (,oldpos (treepos-copy ,pos)))
+         ;; Loop over the rules
+         ,@(loop for r in (rest rule) for n upfrom 0 collect
+                ;; Bind a variable to the result of the rule expansion
+                `(with-expansion-success ((,result ,success) ,expr ,r ,pos ,args)
+                   ;; Success
+                   (appendf ,list ,result)
+                   ;; Failure
+                   (progn
+                     ;; Rewind position
+                     (setf ,pos ,oldpos)
+                     ;; Return failure
+                     (return-from ,block (values nil nil)))))
+         ;; Return success
+         (values ,list t)))))
+
 (defun expand-and~ (expr rule pos args)
   ;; Generates code that parses an expression using (and~ ...)
   (with-gensyms (results checklist result success index)
@@ -237,28 +258,6 @@
        (unless (some #'null (mapcar #'check-range ,counts ,ranges))
          ;; Return list of results
          (values ,results t)))))
-
-(defun expand-and (expr rule pos args)
-  ;; Generates code that parses an expression using (and ...)
-  (with-gensyms (list result block oldpos success)
-    ;; Block to return from when short-circuiting
-    `(block ,block
-       ;; Initialize the list of results
-       (let (,list (,oldpos (treepos-copy ,pos)))
-         ;; Loop over the rules
-         ,@(loop for r in rule for n upfrom 0 collect
-                ;; Bind a variable to the result of the rule expansion
-                `(with-expansion-success ((,result ,success) ,expr ,r ,pos ,args)
-                   ;; Success
-                   (appendf ,list ,result)
-                   ;; Failure
-                   (progn
-                     ;; Rewind position
-                     (setf ,pos ,oldpos)
-                     ;; Return failure
-                     (return-from ,block (values nil nil)))))
-         ;; Return success
-         (values ,list t)))))
 
 (defun expand-not (expr rule pos args)
   ;; Generates code that parses an expression using (not ...)
@@ -378,10 +377,6 @@
         (return-from expand-list-expr (funcall expandfunc expr rule pos args)))))
   ;; Rule is a ...
   (case-test ((first rule) :test symbol=)
-    ;; sequence
-    (and (if (l> rule 1)
-             (expand-and expr (rest rule) pos args)
-             (f-error invalid-operation-error () "Invalid (and ...) expression.")))
     ;; sequence (unordered)
     (and~ (if (l> rule 1)
               (expand-and~ expr (rest rule) pos args)
