@@ -230,10 +230,8 @@
              (setf (nth ,index ,checklist) t)
              ;; Add the result to the list of results
              (setf (nth ,index ,results) ,result)))
-         ;; Catch loop failure
-         (unless (some #'null ,checklist)
-           ;; Return list of results
-           (values ,results t))))))
+         ;; Return list of results
+         (values ,results t)))))
 
 (defun make-checklist (counts ranges)
   (mapcar (lambda (count range) (and (second range) (>= count (second range)))) counts ranges))
