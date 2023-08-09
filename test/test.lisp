@@ -1,5 +1,7 @@
 (in-package :common-lisp-user)
 
+(setf *print-right-margin* 200)
+
 ;; ----- Helpers ----------------------------------------
 
 (defun xnor (&rest forms)
