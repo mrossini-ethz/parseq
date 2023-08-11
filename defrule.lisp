@@ -300,40 +300,40 @@
         t)
        (values nil nil))))
 
-(defun expand-rep (range expr rule pos args)
+(define-operator rep (expr rule pos args) (and (listp rule) (l= rule 3) (symbol= (first rule) 'rep))
   ;; Generates code that parses an expression using (rep ...)
-  (destructuring-bind (min max) (decode-range range)
+  (destructuring-bind (min max) (decode-range (second rule))
     (with-gensyms (ret results n)
       `(let ((,results (loop
                           for ,n upfrom 0
-                          for ,ret = (when (or (null ,max) (< ,n ,max)) (multiple-value-list ,(expand-rule expr rule pos args)))
+                          for ,ret = (when (or (null ,max) (< ,n ,max)) (multiple-value-list ,(expand-rule expr (third rule) pos args)))
                           while (second ,ret)
                           collect (first ,ret))))
          (if (and (or (null ,min) (l>= ,results ,min)) (or (null ,max) (l<= ,results ,max)))
              (values ,results t)
              (values nil nil))))))
 
-(defun expand-? (expr rule pos args)
+(define-operator ? (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) '?))
   ;; Generates code that parses an expression using (? ...)
   (with-gensyms (result success)
-    `(with-expansion ((,result ,success) ,expr ,rule ,pos ,args)
+    `(with-expansion ((,result ,success) ,expr ,(second rule) ,pos ,args)
        (values (if ,success ,result nil) t))))
 
-(defun expand-& (expr rule pos args)
+(define-operator & (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) '&))
   ;; Generates code that parses an expression using (& ...)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos (treepos-copy ,pos)))
-       (with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
+       (with-expansion-success ((,result ,success) ,expr ,(second rule) ,pos ,args)
          (progn
            (setf ,pos ,oldpos)
            (values ,result t))
          (values nil nil)))))
 
-(defun expand-! (expr rule pos args)
+(define-operator expand-! (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) '!))
   ;; Generates code that parses an expression using (! ...)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos (treepos-copy ,pos)))
-       (with-expansion-failure ((,result ,success) ,expr ,rule ,pos ,args)
+       (with-expansion-failure ((,result ,success) ,expr ,(second rule) ,pos ,args)
          ;; Failure, which is good (but only if we're not at the end of expr)
          (if (treepos-valid ,pos ,expr)
              (let ((,result (treeitem ,pos ,expr)))
@@ -380,18 +380,6 @@
         (return-from expand-list-expr (funcall expandfunc expr rule pos args)))))
   ;; Rule is a ...
   (case-test ((first rule) :test symbol=)
-    ;; optional
-    (? (if (l= rule 2)
-           (expand-? expr (second rule) pos args)
-           (f-error invalid-operation-error () "Invalid (? ...) expression.")))
-    ;; followed-by predicate
-    (& (if (l= rule 2)
-           (expand-& expr (second rule) pos args)
-           (f-error invalid-operation-error () "Invalid (& ...) expression.")))
-    ;; not-followed-by predicate
-    (! (if (l= rule 2)
-           (expand-! expr (second rule) pos args)
-           (f-error invalid-operation-error () "Invalid (! ...) expression.")))
     ;; list
     (list (if (l> rule 1)
               (expand-sequence expr (rest rule) pos args 'listp 'list)
@@ -404,10 +392,6 @@
     (vector (if (l> rule 1)
                 (expand-sequence expr (rest rule) pos args 'vectorp 'vector)
                 (f-error invalid-operation-error () "Invalid (vector ...) expression.")))
-    ;; repetition
-    (rep (if (l> rule 2)
-             (expand-rep (cadr rule) expr (caddr rule) pos args)
-             (f-error invalid-operation-error () "Invalid (rep ...) expression.")))
     ;; a call to another rule (with args)
     (t `(try-and-advance ,(expand-parse-call expr rule pos args) ,pos))))
 
