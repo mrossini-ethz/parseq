@@ -284,19 +284,19 @@
            ;; Return nil
            (values nil nil))))))
 
-(defun expand-* (expr rule pos args)
+(define-operator * (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) '*))
   ;; Generates code that parses an expression using (* ...)
    (with-gensyms (ret)
      `(values
-       (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret))
+       (loop for ,ret = (multiple-value-list ,(expand-rule expr (second rule) pos args)) while (second ,ret) collect (first ,ret))
        t)))
 
-(defun expand-+ (expr rule pos args)
+(define-operator + (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) '+))
   ;; Generates code that parses an expression using (+ ...)
   (with-gensyms (result success ret)
-    `(with-expansion-success ((,result ,success) ,expr ,rule ,pos ,args)
+    `(with-expansion-success ((,result ,success) ,expr ,(second rule) ,pos ,args)
        (values
-        (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule expr rule pos args)) while (second ,ret) collect (first ,ret)))
+        (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule expr (second rule) pos args)) while (second ,ret) collect (first ,ret)))
         t)
        (values nil nil))))
 
@@ -380,14 +380,6 @@
         (return-from expand-list-expr (funcall expandfunc expr rule pos args)))))
   ;; Rule is a ...
   (case-test ((first rule) :test symbol=)
-    ;; greedy repetition
-    (* (if (l= rule 2)
-           (expand-* expr (second rule) pos args)
-           (f-error invalid-operation-error () "Invalid (* ...) expression.")))
-    ;; greedy positive repetition
-    (+ (if (l= rule 2)
-           (expand-+ expr (second rule) pos args)
-           (f-error invalid-operation-error () "Invalid (+ ...) expression.")))
     ;; optional
     (? (if (l= rule 2)
            (expand-? expr (second rule) pos args)
