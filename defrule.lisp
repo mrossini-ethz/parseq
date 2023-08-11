@@ -184,19 +184,18 @@
          (values result success)))))
 
 (defmacro define-operator (name (expr-var rule-var pos-var args-var) match-code &body expander-code)
-  (with-gensyms (index matchfunc expandfunc)
+  (with-gensyms (index expandfunc)
     `(let ((,index (position ',name *operator-table* :key #'first))
-           (,matchfunc (lambda (,rule-var) ,match-code))
-           (,expandfunc (lambda (,expr-var ,rule-var ,pos-var ,args-var) ,@expander-code)))
+           (,expandfunc (lambda (,expr-var ,rule-var ,pos-var ,args-var) (unless ,match-code (f-error invalid-operation-error () "Invalid (~a ...) expression." ',name)) ,@expander-code)))
        (if ,index
-           (setf (elt *operator-table* ,index) (list ',name ,matchfunc ,expandfunc))
-           (setf *operator-table* (append *operator-table* (list (list ',name ,matchfunc ,expandfunc)))))
+           (setf (elt *operator-table* ,index) (list ',name ,expandfunc))
+           (setf *operator-table* (append *operator-table* (list (list ',name ,expandfunc)))))
        *operator-table*)))
 
-(define-operator or (expr rule pos args) (and (listp rule) (l> rule 1) (symbol= (first rule) 'or))
-  `(or2 ,@(loop for r in (rest rule) collect (expand-rule expr r pos args))))
+(define-operator or (expr rule pos args) (l> rule 0)
+  `(or2 ,@(loop for r in rule collect (expand-rule expr r pos args))))
 
-(define-operator and (expr rule pos args) (and (listp rule) (l> rule 1) (symbol= (first rule) 'and))
+(define-operator and (expr rule pos args) (l> rule 0)
   (with-gensyms (list result block success)
     ;; Block to return from when short-circuiting
     `(with-backtracking (,pos)
@@ -204,7 +203,7 @@
        (block ,block
          (let (,list)
            ;; Loop over the rules
-           ,@(loop for r in (rest rule) for n upfrom 0 collect
+           ,@(loop for r in rule for n upfrom 0 collect
                    ;; Bind a variable to the result of the rule expansion
                    `(with-expansion-success ((,result ,success) ,expr ,r ,pos ,args)
                       ;; Success
@@ -214,18 +213,18 @@
            ;; Return success
            (values ,list t))))))
 
-(define-operator and~ (expr rule pos args) (and (listp rule) (l> rule 1) (symbol= (first rule) 'and~))
+(define-operator and~ (expr rule pos args) (l> rule 0)
   ;; Generates code that parses an expression using (and~ ...)
   (with-gensyms (results checklist result success index)
     ;; Make a check list that stores nil for rules that have not yet been applied and t for those that have
     ;; Also make a list of results. We need both lists, because the result of a rule may be nil, even if it succeeds.
     `(with-backtracking (,pos)
-       (let ((,checklist (make-list ,(1- (list-length rule)) :initial-element nil))
-             (,results (make-list ,(1- (list-length rule)) :initial-element nil)))
+       (let ((,checklist (make-list ,(list-length rule) :initial-element nil))
+             (,results (make-list ,(list-length rule) :initial-element nil)))
          ;; Check each remaining rule whether it matches the next sequence item
-         (loop repeat ,(1- (list-length rule)) do
+         (loop repeat ,(list-length rule) do
            ;; Try each rule, except those that have already succeeded
-           (multiple-value-bind (,result ,success ,index) (or2-exclusive (,checklist) ,@(loop for r in (rest rule) collect (expand-rule expr r pos args)))
+           (multiple-value-bind (,result ,success ,index) (or2-exclusive (,checklist) ,@(loop for r in rule collect (expand-rule expr r pos args)))
              ;; If none of the sub-rules succeeded, the rule fails entirely
              (unless ,success
                (return))
@@ -240,8 +239,8 @@
 (defun make-checklist (counts ranges)
   (mapcar (lambda (count range) (and (second range) (>= count (second range)))) counts ranges))
 
-(define-operator and~~ (expr rule pos args) (and (listp rule) (l> rule 2) (symbol= (first rule) 'and~~))
-  (let ((rep (second rule)) (rule (cddr rule)))
+(define-operator and~~ (expr rule pos args) (l> rule 1)
+  (let ((rep (first rule)) (rule (rest rule)))
     ;; Generates code that parses an expression using (and~~ ...)
     (with-gensyms (results counts ranges result success index)
       ;; Make a check list that stores the number of times a rule has been applied.
@@ -265,12 +264,12 @@
            (unless (some #'null (mapcar #'check-range ,counts ,ranges))
              (values ,results t)))))))
 
-(define-operator not (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) 'not))
+(define-operator not (expr rule pos args) (l= rule 1)
   ;; Generates code that parses an expression using (not ...)
   (with-gensyms (result success)
     ;; Save the current position
     `(with-backtracking (,pos)
-       (with-expansion-failure ((,result ,success) ,expr ,(second rule) ,pos ,args)
+       (with-expansion-failure ((,result ,success) ,expr ,(first rule) ,pos ,args)
          ;; Expression failed, which is good (but only if we have not reached the end of expr)
          (when (treepos-valid ,pos ,expr)
              (let ((,result (treeitem ,pos ,expr)))
@@ -284,56 +283,56 @@
            ;; Return nil
            (values nil nil))))))
 
-(define-operator * (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) '*))
+(define-operator * (expr rule pos args) (l= rule 1)
   ;; Generates code that parses an expression using (* ...)
    (with-gensyms (ret)
      `(values
-       (loop for ,ret = (multiple-value-list ,(expand-rule expr (second rule) pos args)) while (second ,ret) collect (first ,ret))
+       (loop for ,ret = (multiple-value-list ,(expand-rule expr (first rule) pos args)) while (second ,ret) collect (first ,ret))
        t)))
 
-(define-operator + (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) '+))
+(define-operator + (expr rule pos args) (l= rule 1)
   ;; Generates code that parses an expression using (+ ...)
   (with-gensyms (result success ret)
-    `(with-expansion-success ((,result ,success) ,expr ,(second rule) ,pos ,args)
+    `(with-expansion-success ((,result ,success) ,expr ,(first rule) ,pos ,args)
        (values
-        (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule expr (second rule) pos args)) while (second ,ret) collect (first ,ret)))
+        (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule expr (first rule) pos args)) while (second ,ret) collect (first ,ret)))
         t)
        (values nil nil))))
 
-(define-operator rep (expr rule pos args) (and (listp rule) (l= rule 3) (symbol= (first rule) 'rep))
+(define-operator rep (expr rule pos args) (l= rule 2)
   ;; Generates code that parses an expression using (rep ...)
-  (destructuring-bind (min max) (decode-range (second rule))
+  (destructuring-bind (min max) (decode-range (first rule))
     (with-gensyms (ret results n)
       `(let ((,results (loop
                           for ,n upfrom 0
-                          for ,ret = (when (or (null ,max) (< ,n ,max)) (multiple-value-list ,(expand-rule expr (third rule) pos args)))
+                          for ,ret = (when (or (null ,max) (< ,n ,max)) (multiple-value-list ,(expand-rule expr (second rule) pos args)))
                           while (second ,ret)
                           collect (first ,ret))))
          (if (and (or (null ,min) (l>= ,results ,min)) (or (null ,max) (l<= ,results ,max)))
              (values ,results t)
              (values nil nil))))))
 
-(define-operator ? (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) '?))
+(define-operator ? (expr rule pos args) (l= rule 1)
   ;; Generates code that parses an expression using (? ...)
   (with-gensyms (result success)
-    `(with-expansion ((,result ,success) ,expr ,(second rule) ,pos ,args)
+    `(with-expansion ((,result ,success) ,expr ,(first rule) ,pos ,args)
        (values (if ,success ,result nil) t))))
 
-(define-operator & (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) '&))
+(define-operator & (expr rule pos args) (l= rule 1)
   ;; Generates code that parses an expression using (& ...)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos (treepos-copy ,pos)))
-       (with-expansion-success ((,result ,success) ,expr ,(second rule) ,pos ,args)
+       (with-expansion-success ((,result ,success) ,expr ,(first rule) ,pos ,args)
          (progn
            (setf ,pos ,oldpos)
            (values ,result t))
          (values nil nil)))))
 
-(define-operator expand-! (expr rule pos args) (and (listp rule) (l= rule 2) (symbol= (first rule) '!))
+(define-operator ! (expr rule pos args) (l= rule 1)
   ;; Generates code that parses an expression using (! ...)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos (treepos-copy ,pos)))
-       (with-expansion-failure ((,result ,success) ,expr ,(second rule) ,pos ,args)
+       (with-expansion-failure ((,result ,success) ,expr ,(first rule) ,pos ,args)
          ;; Failure, which is good (but only if we're not at the end of expr)
          (if (treepos-valid ,pos ,expr)
              (let ((,result (treeitem ,pos ,expr)))
@@ -374,10 +373,9 @@
 (defun expand-list-expr (expr rule pos args)
   ;; Generates code that parses an expression with a rule that is a list
   (loop for op in *operator-table* do
-    (destructuring-bind (symb matchfunc expandfunc) op
-      (declare (ignore symb))
-      (when (funcall matchfunc rule)
-        (return-from expand-list-expr (funcall expandfunc expr rule pos args)))))
+    (destructuring-bind (symb expandfunc) op
+      (when (and (consp rule) (symbol= (first rule) symb))
+        (return-from expand-list-expr (funcall expandfunc expr (rest rule) pos args)))))
   ;; Rule is a ...
   (case-test ((first rule) :test symbol=)
     ;; list
