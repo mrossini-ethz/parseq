@@ -140,40 +140,7 @@
     ;; Not implemented
     (t (f-error invalid-terminal-runtime-error () "Unknown operation: ~a (of type ~a)" arg (type-of arg)))))
 
-;; Expansion functions -----------------------------------------------
-
-(defvar *ascii-standard-chars* (list #\Newline #\  #\! #\" #\# #\$ #\% #\& #\' #\( #\) #\* #\+ #\, #\- #\. #\/
-                                     #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\: #\; #\< #\= #\> #\? #\@ #\A #\B
-                                     #\C #\D #\E #\F #\G #\H #\I #\J #\K #\L #\M #\N #\O #\P #\Q #\R #\S #\T #\U
-                                     #\V #\W #\X #\Y #\Z #\[ #\\ #\] #\^ #\_ #\` #\a #\b #\c #\d #\e #\f #\g #\h
-                                     #\i #\j #\k #\l #\m #\n #\o #\p #\q #\r #\s #\t #\u #\v #\w #\x #\y #\z #\{
-                                     #\| #\} #\~))
-
-(defun expand-regexp-bracket-expression (expr)
-  (concatenate 'string
-               (delete-duplicates
-                (loop for i upfrom 0 below (length expr) for last = ch for ch = (elt expr i)
-                   append
-                     (cond
-                       ((and (char= ch #\-) (zerop i)) (list #\-))
-                       ((and (char= ch #\-) (= i (1- (length expr)))) (list #\-))
-                       ((char= ch #\-)
-                        (let* ((next (elt expr (1+ i)))
-                               (a (position last *ascii-standard-chars*))
-                               (b (position next *ascii-standard-chars*)))
-                          (when (< b a)
-                            (f-error invalid-terminal-error () "Invalid character range: \"~c-~c\"" last next))
-                          (incf i 1)
-                          (subseq *ascii-standard-chars* (1+ a) (1+ b))))
-                       (t (list ch))))
-                :test #'char= :from-end t)))
-
-;; These are helper functions for the defrule macro.
-;; Therefore, the functions contain macro code and need to be treated as such.
-;; All take the list that should be parsed as `expr', the parsing `rule',
-;; the current `pos'ition in the list as well as the `arg'uments to the defrule.
-;; The intent is to generate lisp code for parsing.
-;; They return two values: The portion of the `expr' that was parsed, and a success value
+;; Operators ---------------------------------------------------------
 
 (defmacro with-backtracking ((pos) &body body)
   (with-gensyms (oldpos)
@@ -368,16 +335,33 @@
 (define-operator vector (expr rules pos args) (l> rules 0)
   (expand-sequence expr rules pos args 'vectorp 'vector))
 
-(defun expand-parse-call-recursion (rule args)
-  (loop for r in rule for n upfrom 0 collect
-       (cond
-         ((and (plusp n) (have r args)) r)
-         ((and (plusp n) (listp r)) `(list ,@(expand-parse-call-recursion r args)))
-         (t `(quote ,r)))))
+;; Terminals ---------------------------------------------------------
 
-(defun expand-parse-call (expr rule pos args)
-  ;; Makes a call to `parseq-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
-  `(parseq-internal (list ,@(expand-parse-call-recursion rule args)) ,expr ,pos))
+(defvar *ascii-standard-chars* (list #\Newline #\  #\! #\" #\# #\$ #\% #\& #\' #\( #\) #\* #\+ #\, #\- #\. #\/
+                                     #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\: #\; #\< #\= #\> #\? #\@ #\A #\B
+                                     #\C #\D #\E #\F #\G #\H #\I #\J #\K #\L #\M #\N #\O #\P #\Q #\R #\S #\T #\U
+                                     #\V #\W #\X #\Y #\Z #\[ #\\ #\] #\^ #\_ #\` #\a #\b #\c #\d #\e #\f #\g #\h
+                                     #\i #\j #\k #\l #\m #\n #\o #\p #\q #\r #\s #\t #\u #\v #\w #\x #\y #\z #\{
+                                     #\| #\} #\~))
+
+(defun expand-regexp-bracket-expression (expr)
+  (concatenate 'string
+               (delete-duplicates
+                (loop for i upfrom 0 below (length expr) for last = ch for ch = (elt expr i)
+                   append
+                     (cond
+                       ((and (char= ch #\-) (zerop i)) (list #\-))
+                       ((and (char= ch #\-) (= i (1- (length expr)))) (list #\-))
+                       ((char= ch #\-)
+                        (let* ((next (elt expr (1+ i)))
+                               (a (position last *ascii-standard-chars*))
+                               (b (position next *ascii-standard-chars*)))
+                          (when (< b a)
+                            (f-error invalid-terminal-error () "Invalid character range: \"~c-~c\"" last next))
+                          (incf i 1)
+                          (subseq *ascii-standard-chars* (1+ a) (1+ b))))
+                       (t (list ch))))
+                :test #'char= :from-end t)))
 
 ;; Macro that facilitates the addition of new terminals
 (defmacro define-terminal (name (expr rule pos args) test expander-code runtime-code)
@@ -451,6 +435,19 @@
 (define-simple-symbol-terminal number (rule item) (numberp item))
 (define-simple-symbol-terminal integer (rule item) (integerp item))
 (define-simple-symbol-terminal string (rule item) (stringp item))
+
+;; Rule expansion ----------------------------------------------------
+
+(defun expand-parse-call-recursion (rule args)
+  (loop for r in rule for n upfrom 0 collect
+       (cond
+         ((and (plusp n) (have r args)) r)
+         ((and (plusp n) (listp r)) `(list ,@(expand-parse-call-recursion r args)))
+         (t `(quote ,r)))))
+
+(defun expand-parse-call (expr rule pos args)
+  ;; Makes a call to `parseq-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
+  `(parseq-internal (list ,@(expand-parse-call-recursion rule args)) ,expr ,pos))
 
 (defun expand-rule (expr rule pos args)
   ;; Generates code according to the given rule
