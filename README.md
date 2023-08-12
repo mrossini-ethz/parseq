@@ -276,6 +276,18 @@ The *n*-th list within the list contains the results of the *n*-th subexpression
 Succeeds if the current item in the sequence is a list/string/vector and its content matches the subexpressions in sequence.
 Returns a list enclosing the subexpression results.
 
+## Implicit OR
+For convenience, the operators `*`, `+`, `?`, `&`, `!`, `rep` and `not` actually allow multiple subexpressions as alternatives in an implicit `OR`.
+This means that the expression
+```
+(* 'a 'b 'c)
+```
+is equivalent to
+```
+(* (or 'a 'b 'c))
+```
+and this works for all the aforementioned operators.
+
 ## Rule parameters
 Often, rules are similar to each other. For example
 ```
