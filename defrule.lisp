@@ -415,6 +415,7 @@
 (define-simple-terminal (specific-number) (rule item) (numberp rule) (and (numberp item) (= item rule)))
 (define-simple-terminal (specific-symbol) (rule item :quote t) (quoted-symbol-p rule) (symbol= item (second rule)))
 (define-simple-terminal (character-set) (rule item :quote t) (and (listp rule) (l= rule 2) (symbol= (first rule) 'char) (stringp (second rule))) (and (characterp item) (find item (expand-regexp-bracket-expression (second rule)))))
+(define-simple-terminal (type) (rule item :quote t) (and (listp rule) (l> rule 1) (symbol= (first rule) 'type)) (some (lambda (type) (typep item type)) (rest rule)))
 (define-simple-sequence-terminal (specific-string) (stringp string=))
 (define-simple-sequence-terminal (specific-vector) (vectorp equalp))
 (define-simple-symbol-terminal t (rule item) (not (null item)))
