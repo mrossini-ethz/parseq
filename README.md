@@ -132,7 +132,7 @@ Literal values can be specified to match specific items or subsequences in the s
  * `#(1 2 3)` matches the the subsequence `#(1 2 3)` in a vector or the item `#(1 2 3)` in a list
  * `5` matches the number 5
 
-Terminal expressions allow for mor elaborate specifications:
+Terminal expressions allow for more elaborate specifications:
 
  * `(char "a-zA-D7-9.,;<=>-")` matches any character from the characters or character ranges in the
    given string
@@ -306,7 +306,7 @@ Note, however, that since the rule parameter is unknown at compile time, a runti
 In the current implementation, only literal terminals and nonterminals are supported as part of the parsing expression.
 This will likely change in the future.
 
-It is possible to pass multiple paramters, keywords etc.
+It is possible to pass multiple parameters, keywords etc.
 The full syntax of lambda lists is allowed.
 
 ## Processing options
