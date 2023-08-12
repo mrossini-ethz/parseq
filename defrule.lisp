@@ -160,7 +160,11 @@
        *operator-table*)))
 
 (define-operator or (expr rule pos args) (l> rule 0)
-  `(or2 ,@(loop for r in rule collect (expand-rule expr r pos args))))
+  (if (l= rule 1)
+      ;; Reduce overhead if there is only one alternative
+      (expand-rule expr (first rule) pos args)
+      ;; Normal (OR ...) call with multiple alternatives
+      `(or2 ,@(loop for r in rule collect (expand-rule expr r pos args)))))
 
 (define-operator and (expr rule pos args) (l> rule 0)
   (with-gensyms (list result block success)
