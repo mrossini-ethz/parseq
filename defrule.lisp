@@ -285,11 +285,11 @@
     `(with-expansion ((,result ,success) ,expr (or ,@rule) ,pos ,args)
        (values (if ,success ,result nil) t))))
 
-(define-operator & (expr rule pos args) (l= rule 1)
+(define-operator & (expr rule pos args) (l>= rule 1)
   ;; Generates code that parses an expression using (& ...)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos (treepos-copy ,pos)))
-       (with-expansion-success ((,result ,success) ,expr ,(first rule) ,pos ,args)
+       (with-expansion-success ((,result ,success) ,expr (or ,@rule) ,pos ,args)
          (progn
            (setf ,pos ,oldpos)
            (values ,result t))
