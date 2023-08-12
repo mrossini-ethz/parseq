@@ -295,11 +295,11 @@
            (values ,result t))
          (values nil nil)))))
 
-(define-operator ! (expr rule pos args) (l= rule 1)
+(define-operator ! (expr rule pos args) (l>= rule 1)
   ;; Generates code that parses an expression using (! ...)
   (with-gensyms (oldpos result success)
     `(let ((,oldpos (treepos-copy ,pos)))
-       (with-expansion-failure ((,result ,success) ,expr ,(first rule) ,pos ,args)
+       (with-expansion-failure ((,result ,success) ,expr (or ,@rule) ,pos ,args)
          ;; Failure, which is good (but only if we're not at the end of expr)
          (if (treepos-valid ,pos ,expr)
              (let ((,result (treeitem ,pos ,expr)))
