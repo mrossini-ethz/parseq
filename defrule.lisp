@@ -266,13 +266,13 @@
        (values (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule expr `(or ,@rule) pos args)) while (second ,ret) collect (first ,ret))) t)
        (values nil nil))))
 
-(define-operator rep (expr rule pos args) (l= rule 2)
+(define-operator rep (expr rule pos args) (l>= rule 2)
   ;; Generates code that parses an expression using (rep ...)
   (destructuring-bind (min max) (decode-range (first rule))
     (with-gensyms (ret results n)
       `(let ((,results (loop
                           for ,n upfrom 0
-                          for ,ret = (when (or (null ,max) (< ,n ,max)) (multiple-value-list ,(expand-rule expr (second rule) pos args)))
+                          for ,ret = (when (or (null ,max) (< ,n ,max)) (multiple-value-list ,(expand-rule expr `(or ,@(rest rule)) pos args)))
                           while (second ,ret)
                           collect (first ,ret))))
          (if (and (or (null ,min) (l>= ,results ,min)) (or (null ,max) (l<= ,results ,max)))
