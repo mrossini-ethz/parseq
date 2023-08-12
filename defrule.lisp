@@ -379,14 +379,6 @@
   ;; Makes a call to `parseq-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
   `(parseq-internal (list ,@(expand-parse-call-recursion rule args)) ,expr ,pos))
 
-(defun expand-list-expr (expr rule pos args)
-  ;; Generates code that parses an expression with a rule that is a list
-  (loop for op in *operator-table* do
-    (destructuring-bind (symb expandfunc) op
-      (when (and (consp rule) (symbol= (first rule) symb))
-        (return-from expand-list-expr (funcall expandfunc expr (rest rule) pos args)))))
-  `(try-and-advance ,(expand-parse-call expr rule pos args) ,pos))
-
 ;; Macro that facilitates the addition of new terminals
 (defmacro define-terminal (name (expr rule pos args) test expander-code runtime-code)
   (with-gensyms (index matchfunc expandfunc runtimefunc)
@@ -468,12 +460,18 @@
       (declare (ignore symb runtime))
       (when (funcall test rule)
           (return-from expand-rule (funcall expand expr rule pos args)))))
+  ;; Expand operators
+  (loop for op in *operator-table* do
+    (destructuring-bind (symb expandfunc) op
+      (when (and (consp rule) (symbol= (first rule) symb))
+        (return-from expand-rule (funcall expandfunc expr (rest rule) pos args)))))
+  ;; Expand nonterminals
   (cond
-    ;; Expand nonterminals
+    ;; Expand nonterminals (without args)
     ((and (symbolp rule) (have rule args)) `(try-and-advance (runtime-dispatch ,expr ,rule ,pos) ,pos))
     ((symbolp rule) `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))
-    ;; Expand grammar expressions (and, or, *, +, ...)
-    ((and (consp rule) (symbolp (first rule))) (expand-list-expr expr rule pos args))
+    ;; Expand nonterminal (with args)
+    ((and (consp rule) (symbolp (first rule))) `(try-and-advance ,(expand-parse-call expr rule pos args) ,pos))
     ;; Invalid operation
     (t (f-error invalid-operation-error () "Invalid operation ~s" rule))))
 
