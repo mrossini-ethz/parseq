@@ -428,13 +428,21 @@
     (test-parseq 'peg-expr-+-implicit-or '(d d d) t '(d d d))))
 
 (parseq:defrule peg-expr-? () (? 'a))
+(parseq:defrule peg-expr-?-implicit-or () (? 'a 'b))
 
 (define-test ?-test ()
   (check
     ;; (? 'a)
     (test-parseq 'peg-expr-? '() t nil)
     (test-parseq 'peg-expr-? '(a) t 'a)
-    (test-parseq 'peg-expr-? '(b) t nil t)))
+    (test-parseq 'peg-expr-? '(b) nil nil)
+    (test-parseq 'peg-expr-? '(b) t nil t)
+    ;; (? 'a 'b)
+    (test-parseq 'peg-expr-?-implicit-or '() t nil)
+    (test-parseq 'peg-expr-?-implicit-or '(a) t 'a)
+    (test-parseq 'peg-expr-?-implicit-or '(b) t 'b)
+    (test-parseq 'peg-expr-?-implicit-or '(c) nil nil)
+    (test-parseq 'peg-expr-?-implicit-or '(c) t nil t)))
 
 (parseq:defrule peg-expr-& () (& 'a))
 (parseq:defrule peg-expr-! () (! 'a))
