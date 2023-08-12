@@ -23,11 +23,11 @@
 ;; Value uses many different rules
 (defrule value () (or obj array num str true false null))
 ;; Process objects into lists of members (association list)
-(defrule obj () (and begin-object (and member (* value-separator member)) end-object)
+(defrule obj () (and begin-object (? (and member (* (and value-separator member)))) end-object)
   ;; Discard the brackets
   (:choose 1)
   ;; Flatten the list once
-  (:lambda (a b) (concatenate 'list (list a) b))
+  (:lambda (&rest items) (if items (apply #'concatenate 'list (list (first items)) (second items))))
   ;; Discard the separators
   (:lambda (&rest items) (loop for i in items for j upfrom 0 when (zerop (mod j 2)) collect i)))
 ;; Process members into conses
@@ -43,11 +43,12 @@
 ;; Exponent part of a number -> convert to integer
 (defrule exp () (and (or #\e #\E) (? #\+ #\-) (+ digit)) (:choose 1 2) (:string) (:function #'parse-integer))
 ;; Process arrays into vectors of values
-(defrule array () (and begin-array (and value (* value-separator value)) end-array)
+;; Process arrays into vectors of values
+(defrule array () (and begin-array (? (and value (* (and value-separator value)))) end-array)
   ;; Discard the brackets
   (:choose 1)
   ;; Flatten the list once
-  (:lambda (a b) (concatenate 'list (list a) b))
+  (:lambda (&rest items) (if items (apply #'concatenate 'list (list (first items)) (second items))))
   ;; Discard the separators
   (:lambda (&rest items) (loop for i in items for j upfrom 0 when (zerop (mod j 2)) collect i))
   ;; Apply the vector function to convert the list into a vector
