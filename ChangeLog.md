@@ -2,6 +2,16 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
+## Version 0.5.1 - 2021-04-18:
+
+### Bugfixes
+
+  * Fixed string matching for different string types.
+
+### Other
+
+  * Now complying to ASDF's new system name requirements.
+
 ## Version 0.5.0 - 2017-07-25:
 
 ### Features
