@@ -359,6 +359,15 @@
                (values nil nil)))
            (push-terminal-failure ,pos ',terminal)))))
 
+(define-operator list (expr rules pos args) (l> rules 0)
+  (expand-sequence expr rules pos args 'listp 'list))
+
+(define-operator string (expr rules pos args) (l> rules 0)
+  (expand-sequence expr rules pos args 'stringp 'string))
+
+(define-operator vector (expr rules pos args) (l> rules 0)
+  (expand-sequence expr rules pos args 'vectorp 'vector))
+
 (defun expand-parse-call-recursion (rule args)
   (loop for r in rule for n upfrom 0 collect
        (cond
@@ -376,22 +385,7 @@
     (destructuring-bind (symb expandfunc) op
       (when (and (consp rule) (symbol= (first rule) symb))
         (return-from expand-list-expr (funcall expandfunc expr (rest rule) pos args)))))
-  ;; Rule is a ...
-  (case-test ((first rule) :test symbol=)
-    ;; list
-    (list (if (l> rule 1)
-              (expand-sequence expr (rest rule) pos args 'listp 'list)
-              (f-error invalid-operation-error () "Invalid (list ...) expression.")))
-    ;; string
-    (string (if (l> rule 1)
-                (expand-sequence expr (rest rule) pos args 'stringp 'string)
-                (f-error invalid-operation-error () "Invalid (string ...) expression.")))
-    ;; vector
-    (vector (if (l> rule 1)
-                (expand-sequence expr (rest rule) pos args 'vectorp 'vector)
-                (f-error invalid-operation-error () "Invalid (vector ...) expression.")))
-    ;; a call to another rule (with args)
-    (t `(try-and-advance ,(expand-parse-call expr rule pos args) ,pos))))
+  `(try-and-advance ,(expand-parse-call expr rule pos args) ,pos))
 
 ;; Macro that facilitates the addition of new terminals
 (defmacro define-terminal (name (expr rule pos args) test expander-code runtime-code)
