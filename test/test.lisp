@@ -363,13 +363,21 @@
     (test-parseq 'peg-expr-or '(d) nil nil)))
 
 (parseq:defrule peg-expr-not () (not 'a))
+(parseq:defrule peg-expr-not-implicit-or () (not 'a 'b 'c 'd))
 
 (define-test not-test ()
   (check
     ;; (not 'a)
     (test-parseq 'peg-expr-not '() nil nil)
     (test-parseq 'peg-expr-not '(a) nil nil)
-    (test-parseq 'peg-expr-not '(b) t 'b)))
+    (test-parseq 'peg-expr-not '(b) t 'b)
+    ;; Implicit or: (not 'a 'b)
+    (test-parseq 'peg-expr-not-implicit-or '() nil nil)
+    (test-parseq 'peg-expr-not-implicit-or '(a) nil nil)
+    (test-parseq 'peg-expr-not-implicit-or '(b) nil nil)
+    (test-parseq 'peg-expr-not-implicit-or '(c) nil nil)
+    (test-parseq 'peg-expr-not-implicit-or '(d) nil nil)
+    (test-parseq 'peg-expr-not-implicit-or '(e) t 'e)))
 
 (parseq:defrule peg-expr-* () (* 'a))
 

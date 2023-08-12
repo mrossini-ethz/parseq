@@ -231,12 +231,12 @@
            (unless (some #'null (mapcar #'check-range ,counts ,ranges))
              (values ,results t)))))))
 
-(define-operator not (expr rule pos args) (l= rule 1)
+(define-operator not (expr rule pos args) (l>= rule 1)
   ;; Generates code that parses an expression using (not ...)
   (with-gensyms (result success)
     ;; Save the current position
     `(with-backtracking (,pos)
-       (with-expansion-failure ((,result ,success) ,expr ,(first rule) ,pos ,args)
+       (with-expansion-failure ((,result ,success) ,expr (or ,@rule) ,pos ,args)
          ;; Expression failed, which is good (but only if we have not reached the end of expr)
          (when (treepos-valid ,pos ,expr)
              (let ((,result (treeitem ,pos ,expr)))
