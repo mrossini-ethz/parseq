@@ -2,6 +2,24 @@
 
 Parseq uses [semantic versioning](http://semver.org/).
 
+## Version 0.6.0 - 2023-08-12:
+
+### Features
+
+  * Added methods to add custom terminals and operators
+  * Introduced implicit OR function for operators `*`, `+`, `?`, `&`, `!`, `not` and `rep`.
+
+### Bugfixes
+
+  * Fixed backtracking for `and~` and `and~~` operators.
+  * Runtime dispatch now more complete.
+  * Fixed problem with `?` operator symbol.
+
+### Other
+
+  * Added a calculator/compiler example
+  * Changed the implementation architecture to allow redefinition of terminals and operators.
+
 ## Version 0.5.1 - 2021-04-18:
 
 ### Bugfixes
