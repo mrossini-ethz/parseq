@@ -403,6 +403,7 @@
     (test-parseq 'peg-expr-*-implicit-or '(a b c e) nil nil)))
 
 (parseq:defrule peg-expr-+ () (+ 'a))
+(parseq:defrule peg-expr-+-implicit-or () (+ 'a 'b 'c 'd))
 
 (define-test +-test ()
   (check
@@ -413,7 +414,18 @@
     (test-parseq 'peg-expr-+ '(a a a) t '(a a a))
     (test-parseq 'peg-expr-+ '(b) nil nil)
     (test-parseq 'peg-expr-+ '(a b) nil nil)
-    (test-parseq 'peg-expr-+ '(a b) t '(a) t)))
+    (test-parseq 'peg-expr-+ '(a b) t '(a) t)
+    ;; (+ 'a 'b 'c 'd)
+    (test-parseq 'peg-expr-+-implicit-or '() nil nil)
+    (test-parseq 'peg-expr-+-implicit-or '(a) t '(a))
+    (test-parseq 'peg-expr-+-implicit-or '(b) t '(b))
+    (test-parseq 'peg-expr-+-implicit-or '(c) t '(c))
+    (test-parseq 'peg-expr-+-implicit-or '(d) t '(d))
+    (test-parseq 'peg-expr-+-implicit-or '(e) nil nil)
+    (test-parseq 'peg-expr-+-implicit-or '(a a a) t '(a a a))
+    (test-parseq 'peg-expr-+-implicit-or '(b b b) t '(b b b))
+    (test-parseq 'peg-expr-+-implicit-or '(c c c) t '(c c c))
+    (test-parseq 'peg-expr-+-implicit-or '(d d d) t '(d d d))))
 
 (parseq:defrule peg-expr-? () (? 'a))
 
