@@ -136,6 +136,8 @@ Terminal expressions allow for more elaborate specifications:
 
  * `(char "a-zA-D7-9.,;<=>-")` matches any character from the characters or character ranges in the
    given string
+ * `(type myclass)` matches any class of type `myclass`
+ * `(type class-a class-b class-c)` matches any class of type `class-a`, `class-b` or `class-c`
 
 More terminals may be available in later versions of parseq.
 

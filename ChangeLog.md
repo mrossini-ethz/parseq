@@ -6,8 +6,9 @@ Parseq uses [semantic versioning](http://semver.org/).
 
 ### Features
 
-  * Added methods to add custom terminals and operators
+  * Added methods to add custom terminals and operators.
   * Introduced implicit OR function for operators `*`, `+`, `?`, `&`, `!`, `not` and `rep`.
+  * Introduced the (type ...) terminal.
 
 ### Bugfixes
 
@@ -17,7 +18,7 @@ Parseq uses [semantic versioning](http://semver.org/).
 
 ### Other
 
-  * Added a calculator/compiler example
+  * Added a calculator/compiler example.
   * Changed the implementation architecture to allow redefinition of terminals and operators.
 
 ## Version 0.5.1 - 2021-04-18:
