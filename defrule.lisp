@@ -254,12 +254,10 @@
            ;; Return nil
            (values nil nil))))))
 
-(define-operator * (expr rule pos args) (l= rule 1)
+(define-operator * (expr rule pos args) (l>= rule 1)
   ;; Generates code that parses an expression using (* ...)
    (with-gensyms (ret)
-     `(values
-       (loop for ,ret = (multiple-value-list ,(expand-rule expr (first rule) pos args)) while (second ,ret) collect (first ,ret))
-       t)))
+     `(values (loop for ,ret = (multiple-value-list ,(expand-rule expr `(or ,@rule) pos args)) while (second ,ret) collect (first ,ret)) t)))
 
 (define-operator + (expr rule pos args) (l= rule 1)
   ;; Generates code that parses an expression using (+ ...)
