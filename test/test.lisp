@@ -445,19 +445,6 @@
     (test-parseq 'peg-expr-?-implicit-or '(c) t nil t)))
 
 (parseq:defrule peg-expr-& () (& 'a))
-(parseq:defrule peg-expr-! () (! 'a))
-(parseq:defrule peg-expr-rep () (rep 4 'a))
-(parseq:defrule peg-expr-rep-b () (rep (4) 'a))
-(parseq:defrule peg-expr-rep-ab () (rep (3 5) 'a))
-(parseq:defrule peg-expr-rep-nil-b () (rep (nil 5) 'a))
-(parseq:defrule peg-expr-rep-a-nil () (rep (3 nil) 'a))
-(parseq:defrule peg-expr-rep-nil-nil () (rep (nil nil) 'a))
-(parseq:defrule peg-expr-rep-* () (rep * 'a))
-(parseq:defrule peg-expr-rep-+ () (rep + 'a))
-(parseq:defrule peg-expr-rep-? () (rep ? 'a))
-(parseq:defrule peg-expr-list () (list 'a 'b))
-(parseq:defrule peg-expr-string () (string #\a #\b))
-(parseq:defrule peg-expr-vector () (vector 4 5))
 
 (define-test &-test ()
   (check
