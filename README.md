@@ -134,8 +134,10 @@ Literal values can be specified to match specific items or subsequences in the s
 
 Terminal expressions allow for more elaborate specifications:
 
- * `(char "a-zA-D7-9.,;<=>-")` matches any character from the characters or character ranges in the
+ * `(char "a-zA-D7-9^.,;<=>-")` matches any character from the characters or character ranges in the
    given string
+ * `(char "^a-zA-D7-9^.,;<=>-")` matches any character that is _not_ from the characters or character
+   ranges in the given string
  * `(type myclass)` matches any class of type `myclass`
  * `(type class-a class-b class-c)` matches any class of type `class-a`, `class-b` or `class-c`
 

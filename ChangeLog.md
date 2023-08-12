@@ -8,7 +8,8 @@ Parseq uses [semantic versioning](http://semver.org/).
 
   * Added methods to add custom terminals and operators.
   * Introduced implicit OR function for operators `*`, `+`, `?`, `&`, `!`, `not` and `rep`.
-  * Introduced the (type ...) terminal.
+  * Introduced the `(type ...)` terminal.
+  * Enabled inversion for the `(char ...)` terminal using `(char "^...")`.
 
 ### Bugfixes
 
