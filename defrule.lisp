@@ -28,10 +28,10 @@
 (defvar *terminal-failure-list* nil)
 
 (defun parseq (rule sequence &key (start 0) end junk-allowed parse-error)
-  ;; Parses sequence according to the given rule. A subsequence
-  ;; can be parsed by passing the start and/or end arguments.
-  ;; The parse does fails if the end of the sequence is not reached
-  ;; unless junk-allowed is given.
+  ;; Parses  sequence  according  to  the  given  rule  (i.e.  nonterminal).  A
+  ;; subsequence can be  parsed by passing the start and/or  end arguments. The
+  ;; parse fails if the end of  the sequence is not reached unless junk-allowed
+  ;; is given.
   (let ((pos (make-treepos start)) (*terminal-failure-list* (cons (make-treepos) nil)) (*packrat-table* (make-hash-table)))
     ;; Attempt the parse
     (multiple-value-bind (result success newpos) (parseq-internal rule sequence pos)
@@ -49,19 +49,19 @@
                   (f-error parse-junk-error () "Parse error: Junk at the end of the sequence starting at position ~a." (treepos-str newpos)))
               (values nil nil))))))
 
-(defun parseq-internal (rule sequence pos)
-  ;; Function that looks up a named rule and calls it when found.
-  ;; Is called by `parseq' and the parse rule functions.
+(defun parseq-internal (nonterminal sequence pos)
+  ;; Function that looks up a nonterminal and calls it when found. Is called by
+  ;; `parseq' and the parsing expansion and runtime dispatch functions.
   (cond
-    ;; Rule is a named rule (with or without args)
-    ((or (symbolp rule) (and (consp rule) (symbolp (first rule))))
-     ;; Valid rule call. Get the function from the rule table.
-     (let ((fun (gethash (if (consp rule) (first rule) rule) *nonterminal-table*)))
+    ;; Check validity of nonterminal object
+    ((or (symbolp nonterminal) (and (consp nonterminal) (symbolp (first nonterminal))))
+     ;; Valid nonterminal call. Get the parsing function from the nonterminal table.
+     (let ((fun (gethash (if (consp nonterminal) (first nonterminal) nonterminal) *nonterminal-table*)))
        (if fun
-           (apply fun sequence pos (if (listp rule) (rest rule)))
-           (f-error unknown-rule-error () "Unknown rule: ~a" rule))))
-    ;; Invalid rule call
-    (t (f-error invalid-rule-error () "Invalid rule: ~a" rule))))
+           (apply fun sequence pos (if (listp nonterminal) (rest nonterminal)))
+           (f-error unknown-rule-error () "Unknown rule: ~a" nonterminal))))
+    ;; Invalid nonterminal call. Raise an error.
+    (t (f-error invalid-rule-error () "Invalid rule: ~a" nonterminal))))
 
 ;; Expansion helper macros ---------------------------------------------------
 
