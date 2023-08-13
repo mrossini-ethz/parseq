@@ -1,11 +1,11 @@
 (in-package :parseq)
 
-;; List of operators used in parsing expressions. Each item is a symbol
-;; a matching function and an expansion function
+;; List  of operators  used in  parsing expressions.  Each item  is a  symbol a
+;; matching function and an expansion function.
 (defparameter *operator-table* nil)
 
-;; List of possible terminals with each item being a list of terminal
-;; name, a rule matching function as well as an expansion function.
+;; List of possible terminals with each item  being a list of terminal name, an
+;; expression matching function as well as an expansion function.
 (defparameter *terminal-table* nil)
 
 ;; Hash table that maps nonterminals to  functions parsing them. The hash table
