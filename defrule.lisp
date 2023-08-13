@@ -98,7 +98,7 @@
 (defmacro with-expansion (((result-var success-var) sequence expr pos args) &body body)
   ;; Expands  the given  expression and  binds  the return  values (result  and
   ;; success) to the given symbols;
-  `(multiple-value-bind (,result-var ,success-var) ,(expand-rule sequence expr pos args)
+  `(multiple-value-bind (,result-var ,success-var) ,(expand-expression sequence expr pos args)
      ,@body))
 
 (defmacro with-expansion-success (((result-var success-var) sequence expr pos args) then else)
@@ -163,9 +163,9 @@
 (define-operator or (sequence subexprs pos args) (l> subexprs 0)
   (if (l= subexprs 1)
       ;; Reduce overhead if there is only one alternative
-      (expand-rule sequence (first subexprs) pos args)
+      (expand-expression sequence (first subexprs) pos args)
       ;; Normal (OR ...) call with multiple alternatives
-      `(or2 ,@(loop for r in subexprs collect (expand-rule sequence r pos args)))))
+      `(or2 ,@(loop for r in subexprs collect (expand-expression sequence r pos args)))))
 
 (define-operator and (sequence subexprs pos args) (l> subexprs 0)
   (with-gensyms (list result block success)
@@ -198,7 +198,7 @@
          ;; Check each remaining sub-expression whether it matches the next sequence item
          (loop repeat ,(list-length subexprs) do
            ;; Try each sub-expression, except those that have already succeeded
-           (multiple-value-bind (,result ,success ,index) (or2-exclusive (,checklist) ,@(loop for r in subexprs collect (expand-rule sequence r pos args)))
+           (multiple-value-bind (,result ,success ,index) (or2-exclusive (,checklist) ,@(loop for r in subexprs collect (expand-expression sequence r pos args)))
              ;; If none of the sub-expressions succeeded, the operator fails
              (unless ,success
                (return))
@@ -227,7 +227,7 @@
            ;; Check each sub-expression whether it matches the next sequence item
            (loop do
              ;; Try each sub-expression, except those that have already exceeded their maximum allowed applications
-             (multiple-value-bind (,result ,success ,index) (or2-exclusive ((make-checklist ,counts ,ranges)) ,@(loop for r in subexprs collect (expand-rule sequence r pos args)))
+             (multiple-value-bind (,result ,success ,index) (or2-exclusive ((make-checklist ,counts ,ranges)) ,@(loop for r in subexprs collect (expand-expression sequence r pos args)))
                ;; If none of the sub-expressions succeeded, the operator fails
                (unless ,success
                  (return))
@@ -261,13 +261,13 @@
 (define-operator * (sequence subexprs pos args) (l>= subexprs 1)
   ;; Generates code that parses an expression using (* ...)
    (with-gensyms (ret)
-     `(values (loop for ,ret = (multiple-value-list ,(expand-rule sequence `(or ,@subexprs) pos args)) while (second ,ret) collect (first ,ret)) t)))
+     `(values (loop for ,ret = (multiple-value-list ,(expand-expression sequence `(or ,@subexprs) pos args)) while (second ,ret) collect (first ,ret)) t)))
 
 (define-operator + (sequence subexprs pos args) (l>= subexprs 1)
   ;; Generates code that parses an expression using (+ ...)
   (with-gensyms (result success ret)
     `(with-expansion-success ((,result ,success) ,sequence (or ,@subexprs) ,pos ,args)
-       (values (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-rule sequence `(or ,@subexprs) pos args)) while (second ,ret) collect (first ,ret))) t)
+       (values (append (list ,result) (loop for ,ret = (multiple-value-list ,(expand-expression sequence `(or ,@subexprs) pos args)) while (second ,ret) collect (first ,ret))) t)
        (values nil nil))))
 
 (define-operator rep (sequence subexprs pos args) (l>= subexprs 2)
@@ -276,7 +276,7 @@
     (with-gensyms (ret results n)
       `(let ((,results (loop
                           for ,n upfrom 0
-                          for ,ret = (when (or (null ,max) (< ,n ,max)) (multiple-value-list ,(expand-rule sequence `(or ,@(rest subexprs)) pos args)))
+                          for ,ret = (when (or (null ,max) (< ,n ,max)) (multiple-value-list ,(expand-expression sequence `(or ,@(rest subexprs)) pos args)))
                           while (second ,ret)
                           collect (first ,ret))))
          (if (and (or (null ,min) (l>= ,results ,min)) (or (null ,max) (l<= ,results ,max)))
@@ -444,41 +444,46 @@
 (define-simple-symbol-terminal integer (expr item) (integerp item))
 (define-simple-symbol-terminal string (expr item) (stringp item))
 
-;; Rule expansion ----------------------------------------------------
+;; Parsing expression expansion --------------------------------------
 
-(defun expand-parse-call-recursion (rule args)
-  (loop for r in rule for n upfrom 0 collect
+(defun expand-parse-call-recursion (expr args)
+  (loop for r in expr for n upfrom 0 collect
        (cond
          ((and (plusp n) (have r args)) r)
          ((and (plusp n) (listp r)) `(list ,@(expand-parse-call-recursion r args)))
          (t `(quote ,r)))))
 
-(defun expand-parse-call (expr rule pos args)
-  ;; Makes a call to `parseq-internal' with or without quoting the rule arguments depending on whether they are arguments to the current rule
-  `(parseq-internal (list ,@(expand-parse-call-recursion rule args)) ,expr ,pos))
+(defun expand-parse-call (sequence expr pos args)
+  ;; Makes a call to `parseq-internal'  with or without quoting the nonterminal
+  ;; arguments  depending  on  whether  they   are  arguments  to  the  current
+  ;; nonterminal.
+  `(parseq-internal (list ,@(expand-parse-call-recursion expr args)) ,sequence ,pos))
 
-(defun expand-rule (expr rule pos args)
-  ;; Generates code according to the given rule
+(defun expand-expression (sequence expr pos args)
+  ;; Generates code according to the given parsing expression
+
   ;; Expand terminals
   (loop for expander in *terminal-table* do
     (destructuring-bind (symb test expand runtime) expander
       (declare (ignore symb runtime))
-      (when (funcall test rule)
-          (return-from expand-rule (funcall expand expr rule pos args)))))
+      (when (funcall test expr)
+          (return-from expand-expression (funcall expand sequence expr pos args)))))
+
   ;; Expand operators
   (loop for op in *operator-table* do
     (destructuring-bind (symb expandfunc) op
-      (when (and (consp rule) (symbol= (first rule) symb))
-        (return-from expand-rule (funcall expandfunc expr (rest rule) pos args)))))
+      (when (and (consp expr) (symbol= (first expr) symb))
+        (return-from expand-expression (funcall expandfunc sequence (rest expr) pos args)))))
+
   ;; Expand nonterminals
   (cond
     ;; Expand nonterminals (without args)
-    ((and (symbolp rule) (have rule args)) `(try-and-advance (runtime-dispatch ,expr ,rule ,pos) ,pos))
-    ((symbolp rule) `(try-and-advance (parseq-internal ',rule ,expr ,pos) ,pos))
+    ((and (symbolp expr) (have expr args)) `(try-and-advance (runtime-dispatch ,sequence ,expr ,pos) ,pos))
+    ((symbolp expr) `(try-and-advance (parseq-internal ',expr ,sequence ,pos) ,pos))
     ;; Expand nonterminal (with args)
-    ((and (consp rule) (symbolp (first rule))) `(try-and-advance ,(expand-parse-call expr rule pos args) ,pos))
+    ((and (consp expr) (symbolp (first expr))) `(try-and-advance ,(expand-parse-call sequence expr pos args) ,pos))
     ;; Invalid operation
-    (t (f-error invalid-operation-error () "Invalid operation ~s" rule))))
+    (t (f-error invalid-operation-error () "Invalid operation ~s" expr))))
 
 ;; Rule options --------------------------------------------------------------
 
