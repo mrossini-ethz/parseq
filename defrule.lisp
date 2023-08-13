@@ -123,7 +123,7 @@
 
 (defun runtime-dispatch (sequence arg pos)
   ;; Function that parses  terminals at runtime. This is used  when the type of
-  ;; terminal is unknown at compile time (such as for rule arguments).
+  ;; terminal is unknown at compile time (such as for nonterminal arguments).
 
   ;; Expand terminals
   (loop for expander in *terminal-table* do
