@@ -8,10 +8,11 @@
 ;; name, a rule matching function as well as an expansion function.
 (defparameter *terminal-table* nil)
 
-;; Hash table that maps the rule names (symbols) to the functions
-;; that parse the corresponding rule. Being a special variable,
-;; it can be shadowed. This is used in the macro with-local-rules.
-(defparameter *rule-table* (make-hash-table))
+;; Hash table that maps nonterminals to  functions parsing them. The hash table
+;; keys  are symbols  representing the  nonterminals. Nonterminals  are defined
+;; using the (defrule ...) macro. Being a special variable, it can be shadowed.
+;; This is used in the macro with-local-rules.
+(defparameter *nonterminal-table* (make-hash-table))
 
 ;; Hash table that will be set up each time (parseq ...) is called
 ;; (if enabled). Each parse function that is called can store its
@@ -55,7 +56,7 @@
     ;; Rule is a named rule (with or without args)
     ((or (symbolp rule) (and (consp rule) (symbolp (first rule))))
      ;; Valid rule call. Get the function from the rule table.
-     (let ((fun (gethash (if (consp rule) (first rule) rule) *rule-table*)))
+     (let ((fun (gethash (if (consp rule) (first rule) rule) *nonterminal-table*)))
        (if fun
            (apply fun sequence pos (if (listp rule) (rest rule)))
            (f-error unknown-rule-error () "Unknown rule: ~a" rule))))
@@ -638,7 +639,7 @@
 
 (defmacro defrule (name lambda-list expr &body options)
   ;; Creates a lambda expression that parses the given grammar rules.
-  ;; It then stores the lambda function in the global list *rule-table*,
+  ;; It then stores the lambda function in the global list *nonterminal-table*,
   ;; therefore the rule functions use a namespace separate from everything
   (with-gensyms (sequence pos oldpos result success last-call-pos memo)
     ;; Split options into specials, externals and processing options
@@ -648,7 +649,7 @@
          ;; Save the name in the trace rule table (unless it is already there)
          (if-hash ((symbol-name ',name) *trace-rule* :var value :place t) t (setf value 0))
          ;; Save the lambda function in the namespace table
-         (setf (gethash ',name *rule-table*)
+         (setf (gethash ',name *nonterminal-table*)
                ;; Lambda expression that parses according to the given grammar rule
                (lambda (,sequence ,pos ,@lambda-list)
                  ;; Declare special variables specified in the (:external ...) option
@@ -680,7 +681,7 @@
 
 (defmacro with-local-rules (&body body)
   ;; Shadow the global rule table with a new rule table
-  `(let ((*rule-table* (make-hash-table))
+  `(let ((*nonterminal-table* (make-hash-table))
          (*trace-rule* (make-hash-table)))
      ;; Execute the body
      ,@body))
@@ -688,10 +689,10 @@
 (defmacro with-saved-rules (&body body)
   ;; Shadow the global rule table with a copy of the rule table
   ;; When returninng from the body the original rules are restored
-  `(let ((*rule-table* (copy-hash-table *rule-table*))
+  `(let ((*nonterminal-table* (copy-hash-table *nonterminal-table*))
          (*trace-rule* (copy-hash-table *trace-rule*)))
      ;; Execute the body
      ,@body))
 
 (defun clear-rules ()
-  (clrhash *rule-table*))
+  (clrhash *nonterminal-table*))
