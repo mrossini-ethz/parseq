@@ -72,12 +72,12 @@
                                                         (cdr *terminal-failure-list*) (list terminal))))
   nil)
 
-(defmacro test-and-advance (terminal expr pos test result &optional (inc 1))
+(defmacro test-and-advance (terminal sequence pos test result &optional (inc 1))
   ;; Executes the given test at the given position in the sequence and if
   ;; it succeeds increments the position and returns the sequence item that
   ;; matched.
   (with-gensyms (tmp)
-    `(if (treepos-valid ,pos ,expr)
+    `(if (treepos-valid ,pos ,sequence)
          (if ,test
              (let ((,tmp ,result))
                (setf ,pos (treepos-step ,pos ,inc))
@@ -95,21 +95,22 @@
          (setf ,pos (treepos-copy ,newpos))
          (values ,result t)))))
 
-(defmacro with-expansion (((result-var success-var) expr rule pos args) &body body)
-  ;; Expands the given rule and binds the return values (result and success) to the
-  ;; given symbols;
-  `(multiple-value-bind (,result-var ,success-var) ,(expand-rule expr rule pos args)
+(defmacro with-expansion (((result-var success-var) sequence expr pos args) &body body)
+  ;; Expands  the given  expression and  binds  the return  values (result  and
+  ;; success) to the given symbols;
+  `(multiple-value-bind (,result-var ,success-var) ,(expand-rule sequence expr pos args)
      ,@body))
 
-(defmacro with-expansion-success (((result-var success-var) expr rule pos args) then else)
-  ;; Expands the given rule, binds the return values (result and success) to the given
-  ;; symbols and evaluates `then' when successful and `else' upon failure.
-  `(with-expansion ((,result-var ,success-var) ,expr ,rule ,pos ,args)
+(defmacro with-expansion-success (((result-var success-var) sequence expr pos args) then else)
+  ;; Expands the given expression, binds the return values (result and success)
+  ;; to the given symbols and evaluates  `then' when successful and `else' upon
+  ;; failure.
+  `(with-expansion ((,result-var ,success-var) ,sequence ,expr ,pos ,args)
      (if ,success-var ,then ,else)))
 
-(defmacro with-expansion-failure (((result-var success-var) expr rule pos args) then else)
+(defmacro with-expansion-failure (((result-var success-var) sequence expr pos args) then else)
   ;; Same as with-expansio-success but with `then' and `else' reversed.
-  `(with-expansion-success ((,result-var ,success-var) ,expr ,rule ,pos ,args) ,else ,then))
+  `(with-expansion-success ((,result-var ,success-var) ,sequence ,expr ,pos ,args) ,else ,then))
 
 ;; Runtime dispatch ----------------------------------------------------------
 
