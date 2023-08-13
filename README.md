@@ -9,7 +9,7 @@ Parseq uses [Bryan Ford's](https://bford.info/) [parsing expression grammars](ht
 that can be defined through a simple interface.
 Extensions to the standard parsing expressions are available.
 Parsing expressions can be parameterised and made context aware.
-Additionally, the definition of each parsing expression allows the arbitrary transformation of the parsing tree.
+Additionally, the definition of each parsing expression allows arbitrary transformation of the parsing tree.
 
 The library is inspired by [Esrap](https://nikodemus.github.io/esrap/) and uses a very similar interface.
 No code is shared between the two projects, however.
@@ -26,7 +26,7 @@ Parseq provides the following features:
  * Parses strings, vectors (e.g. binary data) and lists
  * Allows parsing of sequences within sequences (e.g. trees, strings within lists, ...)
  * Simple interface, very similar to [Esrap](https://nikodemus.github.io/esrap/)
- * Provides many specific and non-specific terminal symbols
+ * Provides many specific and non-specific terminals
  * Implements the standard [PEG expressions](https://bford.info/pub/lang/peg/) as well as useful extensions
  * [Packrat parsing](https://github.com/mrossini-ethz/parseq/wiki/Packrat-Parsing) can be enabled for individual PEG rules
  * Parsing expression rules are compiled
@@ -35,8 +35,8 @@ Parseq provides the following features:
    * Run parse results of a PEG rule through lisp code to influence parsing success
    * Share data between parse rules
  * Parsing rules can be parameterised
- * Uses separate namespace(s) for parse rules
- * Tracing of grammar rules
+ * Uses separate namespace(s) for PEG rules
+ * Tracing of PEG rules
  * Meaningful parse error messages
 
 ## Basic usage
@@ -103,6 +103,8 @@ If the system can be found through [ASDF](https://common-lisp.net/project/asdf/)
 
 ## Terminals
 Terminals (tokens) are the objects that actually appear in the parsed sequence.
+
+### Item classes
 The following types are item classes:
 
  * `symbol` matches any lisp symbol
@@ -124,6 +126,7 @@ The following types are item classes:
  * `t` matches anything not `nil`
  * `nil` matches `nil` or an empty list
 
+### Literal terminals
 Literal values can be specified to match specific items or subsequences in the sequence being parsed:
 
  * `'foo` matches the symbol `foo`
@@ -132,6 +135,7 @@ Literal values can be specified to match specific items or subsequences in the s
  * `#(1 2 3)` matches the the subsequence `#(1 2 3)` in a vector or the item `#(1 2 3)` in a list
  * `5` matches the number 5
 
+### Terminal expressions
 Terminal expressions allow for more elaborate specifications:
 
  * `(char "a-zA-D7-9^.,;<=>-")` matches any character from the characters or character ranges in the
@@ -233,7 +237,7 @@ The following abbreviations are allowed for repetitions:
 (not subexpression)
 ```
 Succeeds, if the subexpression _does not_ succeed.
-When that happens, the rule consumes _exactly one_ item in the sequence and returns it.
+When that happens, the subexpression consumes _exactly one_ item in the sequence and returns it.
 
 ### Sequence (unordered)
 ```
@@ -521,14 +525,10 @@ Also check out the library [physical-quantities](https://github.com/mrossini-eth
 These features _may_ be implemented in the future:
 
  * Support for rule parameters in parsing expressions other than literal terminals and nonterminals.
- * Short forms for combined nonterminals, e.g.
-   * `(? (and ...))`
-   * `(? (or ...))`
-   or multiple arguments to `(? ...)` signifying either a sequence or a choice.
  * Support for streams (how?)
  * Speed and efficiency
  * Custom terminals
- * Custom non-terminal expressions
+ * Custom operators
  * Custom sequences, i.e. parse _anything_
 
 ## Warnings

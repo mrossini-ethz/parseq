@@ -22,6 +22,7 @@ Parseq uses [semantic versioning](http://semver.org/).
   * Added a calculator/compiler example.
   * Added a JSON parsing example.
   * Changed the implementation architecture to allow redefinition of terminals and operators.
+  * Refactored internal variable and function names for better nomenclature consistency.
 
 ## Version 0.5.1 - 2021-04-18:
 
