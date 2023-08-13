@@ -689,15 +689,15 @@
 ;; Namespace macros and functions ---------------------------------------------
 
 (defmacro with-local-rules (&body body)
-  ;; Shadow the global rule table with a new rule table
+  ;; Shadow the global nonterminal table with a new table
   `(let ((*nonterminal-table* (make-hash-table))
          (*trace-nonterminal* (make-hash-table)))
      ;; Execute the body
      ,@body))
 
 (defmacro with-saved-rules (&body body)
-  ;; Shadow the global rule table with a copy of the rule table
-  ;; When returninng from the body the original rules are restored
+  ;; Shadow  the global  nonterminal  table  with a  copy  of  the table.  When
+  ;; returninng from the body the original nonterminals are restored.
   `(let ((*nonterminal-table* (copy-hash-table *nonterminal-table*))
          (*trace-nonterminal* (copy-hash-table *trace-nonterminal*)))
      ;; Execute the body
