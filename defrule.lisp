@@ -114,31 +114,30 @@
 
 ;; Runtime dispatch ----------------------------------------------------------
 
-(defmacro runtime-match (terminal expr pos test result &optional (inc 1))
-  `(if (treepos-valid ,pos ,expr)
+(defmacro runtime-match (terminal sequence pos test result &optional (inc 1))
+  `(if (treepos-valid ,pos ,sequence)
        (if ,test
            (values ,result t (treepos-step ,pos ,inc))
            (push-terminal-failure ,pos ,terminal))
        (push-terminal-failure ,pos ,terminal)))
 
-(defun runtime-dispatch (expr arg pos)
-  ;; Function that parses terminals at runtime. This is used
-  ;; when the type of terminal is unknown at compile time
-  ;; (such as for rule arguments).
+(defun runtime-dispatch (sequence arg pos)
+  ;; Function that parses  terminals at runtime. This is used  when the type of
+  ;; terminal is unknown at compile time (such as for rule arguments).
 
   ;; Expand terminals
   (loop for expander in *terminal-table* do
     (destructuring-bind (symb test expand runtime) expander
       (declare (ignore symb expand))
       (when (and runtime (funcall test arg))
-        (return-from runtime-dispatch (funcall runtime expr arg pos)))))
+        (return-from runtime-dispatch (funcall runtime sequence arg pos)))))
 
   ;; Expand nonterminals
   (cond
     ;; Is a symbol (possibly a valid nonterminal)
-    ((symbolp arg) (parseq-internal arg expr pos))
+    ((symbolp arg) (parseq-internal arg sequence pos))
     ;; Is a list (possibly a valid nonterminal with arguments)
-    ((listp arg) (parseq-internal arg expr pos))
+    ((listp arg) (parseq-internal arg sequence pos))
     ;; Not implemented
     (t (f-error invalid-terminal-runtime-error () "Unknown operation: ~a (of type ~a)" arg (type-of arg)))))
 
