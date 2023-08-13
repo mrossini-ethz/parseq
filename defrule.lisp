@@ -646,19 +646,20 @@
 ;; defrule macro --------------------------------------------------------------
 
 (defmacro defrule (name lambda-list expr &body options)
-  ;; Creates a lambda expression that parses the given grammar rules.
+  ;; Creates a lambda expression that parses the given nonterminal (i.e. rule).
   ;; It then stores the lambda function in the global list *nonterminal-table*,
-  ;; therefore the rule functions use a namespace separate from everything
+  ;; therefore  the  nonterminal  functions   use  a  namespace  separate  from
+  ;; everything
   (with-gensyms (sequence pos oldpos result success last-call-pos memo)
     ;; Split options into specials, externals and processing options
     (processing-options-bind (specials externals processing-options packrat) options name
       ;; Bind a variable for the following lambda expression to close over
       `(let (,last-call-pos)
-         ;; Save the name in the trace rule table (unless it is already there)
+         ;; Save the name in the trace table (unless it is already there)
          (if-hash ((symbol-name ',name) *trace-nonterminal* :var value :place t) t (setf value 0))
          ;; Save the lambda function in the namespace table
          (setf (gethash ',name *nonterminal-table*)
-               ;; Lambda expression that parses according to the given grammar rule
+               ;; Lambda expression that parses according to the given grammar expression
                (lambda (,sequence ,pos ,@lambda-list)
                  ;; Declare special variables specified in the (:external ...) option
                  ,@(if externals `((declare (special ,@externals))))
@@ -672,7 +673,7 @@
                        (with-tracing (,name ,oldpos ,memo)
                          ;; Memoization (packrat parsing)
                          (with-packrat (,packrat ,name ,oldpos ,lambda-list ,externals ,memo)
-                           ;; Expand the rule into code that parses the sequence
+                           ;; Expand the expression into code that parses the sequence
                            (with-expansion-success ((,result ,success) ,sequence ,expr ,pos ,lambda-list)
                              ;; Process the result
                              (multiple-value-bind (,result ,success) ,(expand-processing-options result processing-options)
