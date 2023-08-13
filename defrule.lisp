@@ -551,26 +551,26 @@
 
 ;; Trace functions -----------------------------------------------------------
 
-;; Counter that is incremented whenever a traced rule is called and decremented when it returns
+;; Counter that is incremented whenever a traced nonterminal is called and decremented when it returns
 (defparameter *trace-depth* 0)
-;; Flag that can be shadowed by a traced rule so that rules called from within that rule can be traced as well
+;; Flag that can be shadowed by a traced nonterminal so that nonterminals called from within that nonterminal can be traced as well
 (defparameter *trace-recursive* nil)
-;; Lookup table for rules that specifies whether a rule is traced (value 1) or traced recursively (value 2) or not (value 0).
-(defparameter *trace-rule* (make-hash-table :test 'equal))
+;; Lookup table for nonterminals that specifies whether a nonterminal is traced (value 1) or traced recursively (value 2) or not (value 0).
+(defparameter *trace-nonterminal* (make-hash-table :test 'equal))
 
 (defun is-traced (trace-option)
-  ;; Determies, whether a rule is traced or not depending on the given option and the *trace-recursive* parameter.
+  ;; Determies, whether a nonterminal is traced or not depending on the given option and the *trace-recursive* parameter.
   (or (plusp trace-option) *trace-recursive*))
 
 (defun is-traced-with-recursion (trace-option)
   (= trace-option 2))
 
 (defmacro with-tracing ((name pos memo) &body body)
-  ;; Wrapper for enabling tracing in parse rules
+  ;; Wrapper for enabling tracing in parse nonterminals
   (with-gensyms (trace-opt result success newpos)
     ;; Lookup tracing options in the hash table.
     ;; This actually closes over the symbol `name' so the parsing function remembers which name it was defined with.
-    `(let ((,trace-opt (gethash (symbol-name ',name) *trace-rule*)) ,memo)
+    `(let ((,trace-opt (gethash (symbol-name ',name) *trace-nonterminal*)) ,memo)
        (conditional-dynamic-bind ((*trace-recursive* (if (is-traced-with-recursion ,trace-opt) t *trace-recursive*))
                                   (*trace-depth* (1+ *trace-depth*)))
            (is-traced ,trace-opt)
@@ -589,12 +589,12 @@
            (values ,result ,success ,newpos))))))
 
 (defun trace-rule (name &key recursive)
-  ;; Function that enables tracing of the given rule
-  (setf (gethash (symbol-name name) *trace-rule*) (if recursive 2 1)))
+  ;; Function that enables tracing of the given nonterminal
+  (setf (gethash (symbol-name name) *trace-nonterminal*) (if recursive 2 1)))
 
 (defun untrace-rule (name)
-  ;; Function that disables tracing of the given rule
-  (setf (gethash (symbol-name name) *trace-rule*) 0))
+  ;; Function that disables tracing of the given nonterminal
+  (setf (gethash (symbol-name name) *trace-nonterminal*) 0))
 
 ;; Left recursion -------------------------------------------------------------
 
@@ -655,7 +655,7 @@
       ;; Bind a variable for the following lambda expression to close over
       `(let (,last-call-pos)
          ;; Save the name in the trace rule table (unless it is already there)
-         (if-hash ((symbol-name ',name) *trace-rule* :var value :place t) t (setf value 0))
+         (if-hash ((symbol-name ',name) *trace-nonterminal* :var value :place t) t (setf value 0))
          ;; Save the lambda function in the namespace table
          (setf (gethash ',name *nonterminal-table*)
                ;; Lambda expression that parses according to the given grammar rule
@@ -690,7 +690,7 @@
 (defmacro with-local-rules (&body body)
   ;; Shadow the global rule table with a new rule table
   `(let ((*nonterminal-table* (make-hash-table))
-         (*trace-rule* (make-hash-table)))
+         (*trace-nonterminal* (make-hash-table)))
      ;; Execute the body
      ,@body))
 
@@ -698,7 +698,7 @@
   ;; Shadow the global rule table with a copy of the rule table
   ;; When returninng from the body the original rules are restored
   `(let ((*nonterminal-table* (copy-hash-table *nonterminal-table*))
-         (*trace-rule* (copy-hash-table *trace-rule*)))
+         (*trace-nonterminal* (copy-hash-table *trace-nonterminal*)))
      ;; Execute the body
      ,@body))
 
