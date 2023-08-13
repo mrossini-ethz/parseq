@@ -2,7 +2,6 @@
 
 (define-condition parseq-error (simple-error) ()
   (:documentation "Generic error for the parseq library"))
-(export 'parseq-error)
 
 (define-condition generic-parse-error (parseq-error) ()
   (:documentation "Generic parsing error"))
@@ -12,7 +11,6 @@
   (:documentation "Error condition for when the sequence does not match the parsing grammar rules."))
 (define-condition parse-junk-error (generic-parse-error) ()
   (:documentation "Error condition for when the sequence is only partially parsed, leaving junk at the end."))
-(export '(generic-parse-error parse-match-error parse-junk-error parse-error-position parse-error-terminals))
 
 (define-condition rule-definition-error (parseq-error) ()
   (:documentation "Generic error for rule definitions"))
@@ -22,7 +20,6 @@
   (:documentation "Error condition for rule definitions where the usage of an operation is invalid."))
 (define-condition processing-options-error (rule-definition-error) ()
   (:documentation "Error condition for rule definitions where a processing option is invalid."))
-(export '(rule-definition-error invalid-terminal-error invalid-operation-error processing-options-error))
 
 (define-condition runtime-error (parseq-error) ()
   (:documentation "Generic runtime error"))
@@ -34,7 +31,6 @@
   (:documentation "Error condition for malformed calls to rules."))
 (define-condition left-recursion-error (runtime-error) ()
   (:documentation "Error condition for situations where left recursion is detected at runtime."))
-(export '(runtime-error unknown-rule-error invalid-terminal-runtime-error invalid-rule-error left-recursion-error))
 
 (defmacro f-error (type (&rest initargs) control &rest args)
   "Like (error ...), but allows the condition type to be specified (which is required to inherit from simple-condition)."
