@@ -599,15 +599,15 @@
 ;; Left recursion -------------------------------------------------------------
 
 (defmacro with-left-recursion-protection ((pos stack) &body body)
-  ;; Wrapper for rule definitions that checks for left recursion
-  ;; by keeping track of whether the rule has been called at the
-  ;; given position in the parsed sequence or not. The stack is
-  ;; a closed over variable where the current position is pushed
-  ;; on when a rule is called and popped when it returns.
+  ;; Wrapper  for nonterminal  definitions that  checks for  left recursion  by
+  ;; keeping track  of whether  the nonterminal  has been  called at  the given
+  ;; position  in the  parsed  sequence or  not.  The stack  is  a closed  over
+  ;; variable where  the current position  is pushed  on when a  nonterminal is
+  ;; called and popped when it returns.
   `(progn
      (when (and ,stack (treepos= ,pos (first ,stack)))
        (f-error left-recursion-error () "Left recursion detected!"))
-     ;; Save the position in which this rule was called
+     ;; Save the position in which this nonterminal was called
      (push (treepos-copy ,pos) ,stack)
      ;; Execute the body.
      (unwind-protect (progn ,@body)
