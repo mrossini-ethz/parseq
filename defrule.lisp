@@ -485,14 +485,14 @@
     ;; Invalid operation
     (t (f-error invalid-operation-error () "Invalid operation ~s" expr))))
 
-;; Rule options --------------------------------------------------------------
+;; Processing options --------------------------------------------------------
 
 (defun expand-destructure (destruct-lambda result body)
-  ;; Generates code for handling a (:destructure ...) or (:lambda ...) rule option
+  ;; Generates code for handling a (:destructure ...) or (:lambda ...) processing option
   `(destructuring-bind ,destruct-lambda (mklist ,result) ,@body))
 
 (defun expand-choice (indices result)
-  ;; Generates code for handling a (:choose ...) rule option.
+  ;; Generates code for handling a (:choose ...) processing option.
   (with-gensyms (var list)
     (if (l= indices 1)
         ;; Return the item
@@ -501,7 +501,7 @@
         `(loop for ,var in (list ,@indices) with ,list = (mklist ,result) collect (choice-item ,var ,list)))))
 
 (defun expand-processing-options (result procs)
-  ;; Generates code for handling rule options
+  ;; Generates code for handling processing options
   (with-gensyms (blockname tmp)
     (if (null procs)
         `(values ,result t)
@@ -525,19 +525,19 @@
                       (t (f-error processing-options-error () "Invalid processing option ~s." opt))))
              (values ,tmp t))))))
 
-(defmacro rule-options-bind ((specials externals processing packrat) options name &body body)
+(defmacro processing-options-bind ((specials externals processing packrat) options name &body body)
   (with-gensyms (opt pckrt)
     `(multiple-value-bind (,specials ,externals ,processing ,packrat)
          (loop for ,opt in ,options
             with ,pckrt = nil
-            when (not (consp ,opt)) do (f-error processing-options-error () "Invalid processing option in rule definition for ~a." ,name)
+            when (not (consp ,opt)) do (f-error processing-options-error () "Invalid processing option in rule definition ~a." ,name)
             when (eql (first ,opt) :external) append (rest ,opt) into ,externals
             when (eql (first ,opt) :let) append (rest ,opt) into ,specials
             when (and (l= ,opt 2) (eql (first ,opt) :packrat)) do (setf ,pckrt (not (not (second ,opt))))
             when (have (first ,opt) '(:constant :lambda :destructure :choose :function :identity :flatten :string :vector :test :not))
             collect ,opt into ,processing
             when (not (have (first ,opt) '(:constant :lambda :destructure :function :choose :identity :flatten :string :vector :test :not :external :let :packrat)))
-            do (f-error processing-options-error () "Invalid processing option ~s in rule definition for ~a." (first ,opt) ,name)
+            do (f-error processing-options-error () "Invalid processing option ~s in rule definition ~a." (first ,opt) ,name)
             finally (return (values ,specials ,externals ,processing ,pckrt)))
        ,@body)))
 
@@ -651,7 +651,7 @@
   ;; therefore the rule functions use a namespace separate from everything
   (with-gensyms (sequence pos oldpos result success last-call-pos memo)
     ;; Split options into specials, externals and processing options
-    (rule-options-bind (specials externals processing-options packrat) options name
+    (processing-options-bind (specials externals processing-options packrat) options name
       ;; Bind a variable for the following lambda expression to close over
       `(let (,last-call-pos)
          ;; Save the name in the trace rule table (unless it is already there)
