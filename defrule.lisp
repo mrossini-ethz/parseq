@@ -541,10 +541,10 @@
             finally (return (values ,specials ,externals ,processing ,pckrt)))
        ,@body)))
 
-;; Special variables (rule bindings) -----------------------------------------
+;; Special variables (nonterminal bindings) ----------------------------------
 
 (defmacro with-special-vars-from-options (bindings &body body)
-  ;; Generates code that declares the special variables given in the rule options
+  ;; Generates code that declares the special variables given in the processing options
   (if bindings
       `(let-special (,@bindings) ,@body)
       `(progn ,@body)))
